@@ -1,14 +1,40 @@
 This is an app helping kids choose books from to read from a library bookself. Snap a pic of a library shelf, AI discovers the books (object detection model -> OCR -> library metadata lookups) and provides personalized recommendations given prior user history. This is for a 2-day hackathon, so moving quickly - but needs to be presentable. Not feature rich, but look great. 
 
 Tech Stack:
-    Expo Go + React Native
-    App BFF: Express + Drizzle ORM
+    Expo Go + React Native (runs natively on Mac, NOT in Docker)
+    App Backend (BFF): Express + Drizzle ORM
     Auth: Clerk
-    Deployment: Docker Compose (Postgres + App + Worker)
-    Processing Pipline: python workers in a container
-        (models tbd)
+    Database: Postgres (Docker Compose locally)
+    Processing Pipeline: Python workers in a container (models tbd)
     LLM API Endpoint to be provided
+    Image Storage: Local volume mount (S3-compatible if needed later)
 
+## Dev Environment
+
+Local development uses Docker Compose for backend services + Expo CLI on the host Mac for the React Native app.
+
+```
+docker-compose.yml
+├── postgres         (port 5432)
+├── app-backend      (Express, port 3000, source volume-mounted for hot reload)
+├── worker           (Python, source volume-mounted for hot reload)
+
+Host Mac (not Docker):
+└── expo start       (React Native — iOS Simulator, Android Emulator, Expo Go)
+```
+
+## Testing Strategy
+
+| Layer | Tool | Notes |
+|-------|------|-------|
+| app-backend API | vitest + supertest (or curl) | All endpoints, scan workflow, book CRUD |
+| Python pipeline | pytest | Workers in isolation |
+| React Native UI | iOS Simulator + Expo Go on device | Manual testing; Maestro if time permits |
+| Agentic validation | Claude Code + curl/API calls | Per "test whenever possible" rule |
+
+Screen Designs: `./designs/screen-map.md`
+Data Model: `./designs/data-model.md`
+Design Guidelines: `./designs/design-guidelines.md`
 
 ## Agentic Rules
 
@@ -22,7 +48,7 @@ NO FALLBACKS unless specifically requested by a user. Do not overcomplicate the 
 
 NO ARGS AND RETURNS in docstrings. Python docstrings are nice but only explain what the method is doing, do not describe each args or return type (unless very unorthodox).
 
-LOCAL DEV DATABASE ACCESS. You may have mcp server providing execute_sql tool (or similar), use that to connect to the local postgre database. Use schemas when referencing tables (litellm.* chainlit.* controltower.*). If no MCP tool is enabled, ask a user to enable it for you - see `MCP.md`.
+LOCAL DEV DATABASE ACCESS. You may have mcp server providing execute_sql tool (or similar), use that to connect to the local Postgres database. If no MCP tool is enabled, ask the user to enable it — see `MCP.md`.
 
 NO DATABASE CONSTRAINTS
 

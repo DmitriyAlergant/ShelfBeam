@@ -142,3 +142,19 @@ vite.config.ts.timestamp-*
 .venv
 __pycache__
 .DS_Store
+
+# Expo
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Drizzle
+app-backend/drizzle/meta/
+
+# Docker
+pgdata/
