@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
 import path from "path";
 import { clerkMiddleware } from "@clerk/express";
 import { runMigrations } from "./db/migrate";
@@ -21,6 +22,7 @@ async function main() {
 
   const app = express();
 
+  app.use(cors());
   app.use(express.json());
   app.use(adminAuthBypass);
   app.use((req: Request, res: Response, next: NextFunction) => {

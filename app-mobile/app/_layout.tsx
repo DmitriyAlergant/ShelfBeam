@@ -1,5 +1,6 @@
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
@@ -29,14 +30,24 @@ const CLERK_PUBLISHABLE_KEY = (() => {
   return key;
 })();
 
-const tokenCache = {
-  async getToken(key: string) {
-    return SecureStore.getItemAsync(key);
-  },
-  async saveToken(key: string, value: string) {
-    return SecureStore.setItemAsync(key, value);
-  },
-};
+const tokenCache =
+  Platform.OS === "web"
+    ? {
+        async getToken(key: string) {
+          return localStorage.getItem(key);
+        },
+        async saveToken(key: string, value: string) {
+          localStorage.setItem(key, value);
+        },
+      }
+    : {
+        async getToken(key: string) {
+          return SecureStore.getItemAsync(key);
+        },
+        async saveToken(key: string, value: string) {
+          return SecureStore.setItemAsync(key, value);
+        },
+      };
 
 function AuthGate() {
   const { isLoaded, isSignedIn } = useAuth();

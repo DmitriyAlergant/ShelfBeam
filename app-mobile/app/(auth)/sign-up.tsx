@@ -1,6 +1,6 @@
-import { useSignUp } from "@clerk/clerk-expo";
+import { useSignUp, useSSO } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,10 +12,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
+  const { startSSOFlow } = useSSO();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -23,7 +28,40 @@ export default function SignUpScreen() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      void WebBrowser.warmUpAsync();
+      return () => {
+        void WebBrowser.coolDownAsync();
+      };
+    }
+  }, []);
+
+  const onSSOPress = useCallback(
+    async (strategy: "oauth_google" | "oauth_apple") => {
+      setSsoLoading(strategy);
+      setError(null);
+      try {
+        const { createdSessionId, setActive: ssoSetActive } =
+          await startSSOFlow({ strategy });
+
+        if (createdSessionId && ssoSetActive) {
+          await ssoSetActive({ session: createdSessionId });
+          router.replace("/(main)/profile-picker");
+        }
+      } catch (err: any) {
+        const msg =
+          err?.errors?.[0]?.longMessage || err?.message || "Sign up failed";
+        setError(msg);
+      } finally {
+        setSsoLoading(null);
+      }
+    },
+    [startSSOFlow, router],
+  );
 
   const onSignUp = async () => {
     if (!isLoaded) return;
@@ -77,6 +115,44 @@ export default function SignUpScreen() {
 
           {!pendingVerification ? (
             <>
+              <TouchableOpacity
+                style={[styles.ssoButton, ssoLoading === "oauth_google" && styles.buttonDisabled]}
+                onPress={() => onSSOPress("oauth_google")}
+                disabled={!!ssoLoading || loading}
+              >
+                {ssoLoading === "oauth_google" ? (
+                  <ActivityIndicator color={colors.inkDark} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color={colors.inkDark} />
+                    <Text style={styles.ssoButtonText}>Continue with Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {Platform.OS === "ios" && (
+                <TouchableOpacity
+                  style={[styles.ssoButtonDark, ssoLoading === "oauth_apple" && styles.buttonDisabled]}
+                  onPress={() => onSSOPress("oauth_apple")}
+                  disabled={!!ssoLoading || loading}
+                >
+                  {ssoLoading === "oauth_apple" ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={22} color="#fff" />
+                      <Text style={styles.ssoButtonTextLight}>Continue with Apple</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -99,10 +175,10 @@ export default function SignUpScreen() {
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={onSignUp}
-                disabled={loading}
+                disabled={loading || !!ssoLoading}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.inkDark} />
+                  <ActivityIndicator color={colors.bgCream} />
                 ) : (
                   <Text style={styles.buttonText}>Sign Up</Text>
                 )}
@@ -128,7 +204,7 @@ export default function SignUpScreen() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.inkDark} />
+                  <ActivityIndicator color={colors.bgCream} />
                 ) : (
                   <Text style={styles.buttonText}>Verify Email</Text>
                 )}
@@ -212,6 +288,50 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     color: colors.inkMedium,
     textAlign: "center",
+  },
+  ssoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  ssoButtonDark: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.inkDark,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  ssoButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkDark,
+  },
+  ssoButtonTextLight: {
+    fontSize: 16,
+    fontFamily: fonts.bodyMedium,
+    color: "#fff",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.inkLight,
+    opacity: 0.4,
+  },
+  dividerText: {
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkLight,
   },
   input: {
     backgroundColor: colors.bgWarm,
