@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
+import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -126,7 +127,9 @@ export default function ScanDetailScreen() {
       });
 
       setTakenBookIds((prev) => new Set([...prev, book.id]));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     },
     [activeProfile, getToken, id]
   );
