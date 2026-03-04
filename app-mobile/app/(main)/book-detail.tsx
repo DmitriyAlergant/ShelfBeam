@@ -121,25 +121,28 @@ export default function BookDetailScreen() {
     [activeProfile, entryId, getToken, status]
   );
 
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      "Remove from history?",
-      "This book will be removed from your reading history.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            if (!activeProfile || !entryId) return;
-            const token = await getToken();
-            if (!token) return;
-            await deleteHistoryEntry(token, activeProfile.id, entryId);
-            router.back();
-          },
-        },
-      ]
-    );
+  const handleDelete = useCallback(async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("Remove from history?\nThis book will be removed from your reading history.")) return;
+    } else {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          "Remove from history?",
+          "This book will be removed from your reading history.",
+          [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Remove", style: "destructive", onPress: () => resolve(true) },
+          ]
+        );
+      });
+      if (!confirmed) return;
+    }
+
+    if (!activeProfile || !entryId) return;
+    const token = await getToken();
+    if (!token) return;
+    await deleteHistoryEntry(token, activeProfile.id, entryId);
+    router.back();
   }, [activeProfile, entryId, getToken, router]);
 
   if (loading || !book) {
