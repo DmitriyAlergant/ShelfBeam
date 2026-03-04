@@ -1,9 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 
 export default function ScanHome() {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.header}>Scan a Shelf</Text>
 
       <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}>
@@ -18,44 +18,40 @@ export default function ScanHome() {
           Take a photo of a bookshelf to discover great reads!
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
-    paddingHorizontal: 24,
+    backgroundColor: colors.bgCream,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   header: {
     fontSize: 28,
-    fontWeight: "800",
-    color: "#2D2D2D",
-    marginTop: 16,
-    marginBottom: 24,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.lg,
   },
   ctaButton: {
-    backgroundColor: "#6C63FF",
-    borderRadius: 16,
-    paddingVertical: 24,
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
-    shadowColor: "#6C63FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    gap: spacing.md,
+    ...shadows.button,
   },
   ctaEmoji: {
     fontSize: 28,
   },
   ctaText: {
-    color: "#FFFFFF",
+    color: colors.inkDark,
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.heading,
   },
   emptyState: {
     flex: 1,
@@ -65,17 +61,18 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: {
     fontSize: 56,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "700",
-    color: "#2D2D2D",
-    marginBottom: 8,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: "#8E8E93",
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
     textAlign: "center",
     paddingHorizontal: 40,
     lineHeight: 22,

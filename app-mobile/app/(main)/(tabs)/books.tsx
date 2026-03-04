@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { colors, fonts, spacing } from "../../../lib/theme";
 
 export default function MyBooks() {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.header}>My Books</Text>
 
       <View style={styles.emptyState}>
@@ -13,22 +13,22 @@ export default function MyBooks() {
           Scan a shelf to discover books, or tell us what you've been reading!
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
-    paddingHorizontal: 24,
+    backgroundColor: colors.bgCream,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   header: {
     fontSize: 28,
-    fontWeight: "800",
-    color: "#2D2D2D",
-    marginTop: 16,
-    marginBottom: 24,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.lg,
   },
   emptyState: {
     flex: 1,
@@ -38,17 +38,18 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: {
     fontSize: 56,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "700",
-    color: "#2D2D2D",
-    marginBottom: 8,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: "#8E8E93",
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
     textAlign: "center",
     paddingHorizontal: 40,
     lineHeight: 22,

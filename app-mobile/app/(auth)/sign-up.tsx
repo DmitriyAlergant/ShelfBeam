@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -46,7 +47,7 @@ export default function SignUpScreen() {
     if (result.status === "complete") {
       await setActive({ session: result.createdSessionId });
       setLoading(false);
-      router.replace("/(main)/(tabs)");
+      router.replace("/(main)/profile-picker");
     } else {
       setError("Verification incomplete. Please try again.");
       setLoading(false);
@@ -79,7 +80,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Email"
-                placeholderTextColor="#8E8E93"
+                placeholderTextColor={colors.inkLight}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -89,7 +90,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                placeholderTextColor="#8E8E93"
+                placeholderTextColor={colors.inkLight}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -101,7 +102,7 @@ export default function SignUpScreen() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={colors.inkDark} />
                 ) : (
                   <Text style={styles.buttonText}>Sign Up</Text>
                 )}
@@ -115,7 +116,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Verification code"
-                placeholderTextColor="#8E8E93"
+                placeholderTextColor={colors.inkLight}
                 value={code}
                 onChangeText={setCode}
                 keyboardType="number-pad"
@@ -127,7 +128,7 @@ export default function SignUpScreen() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={colors.inkDark} />
                 ) : (
                   <Text style={styles.buttonText}>Verify Email</Text>
                 )}
@@ -152,79 +153,81 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
+    backgroundColor: colors.bgCream,
   },
   inner: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 48,
+    marginBottom: spacing.xxl,
   },
   logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#FF6B6B",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.spineCoral,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#FF6B6B",
+    marginBottom: spacing.md,
+    shadowColor: colors.spineCoral,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
   logoEmoji: {
-    fontSize: 40,
+    fontSize: 44,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: "#2D2D2D",
+    fontSize: 40,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: "#8E8E93",
-    marginTop: 4,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    marginTop: spacing.xs,
   },
   form: {
-    gap: 16,
+    gap: spacing.md,
   },
   errorBox: {
-    backgroundColor: "#FFE5E5",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: colors.coralLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   errorText: {
-    color: "#FF6B6B",
+    color: colors.spineCoral,
     fontSize: 14,
+    fontFamily: fonts.bodyMedium,
     textAlign: "center",
   },
   verifyText: {
     fontSize: 15,
-    color: "#8E8E93",
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
     textAlign: "center",
   },
   input: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 14,
     fontSize: 16,
-    color: "#2D2D2D",
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
+    fontFamily: fonts.body,
+    color: colors.inkDark,
   },
   button: {
-    backgroundColor: "#FF6B6B",
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.spineCoral,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: "center",
-    shadowColor: "#FF6B6B",
+    shadowColor: colors.spineCoral,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -234,22 +237,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: colors.bgCream,
     fontSize: 17,
-    fontWeight: "700",
+    fontFamily: fonts.headingSemiBold,
   },
   linkRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   linkLabel: {
-    color: "#8E8E93",
+    color: colors.inkMedium,
     fontSize: 15,
+    fontFamily: fonts.body,
   },
   link: {
-    color: "#6C63FF",
+    color: colors.shelfBrown,
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.bodyBold,
   },
 });

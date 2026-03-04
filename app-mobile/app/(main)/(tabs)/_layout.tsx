@@ -1,68 +1,95 @@
 import { Tabs } from "expo-router";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { colors, fonts, shadows, spacing } from "../../../lib/theme";
+import { useAppContext } from "../../../lib/AppContext";
+import { Redirect } from "expo-router";
+import { ProfileSwitcher } from "../../../components/ProfileSwitcher";
 
 export default function TabsLayout() {
+  const { activeProfile } = useAppContext();
+
+  if (!activeProfile) {
+    return <Redirect href="/(main)/profile-picker" />;
+  }
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#6C63FF",
-        tabBarInactiveTintColor: "#8E8E93",
-        tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Scan",
-          tabBarIcon: ({ color }) => (
-            <TabIcon emoji="📷" color={color} />
-          ),
+    <>
+      <ProfileSwitcher />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.beamYellow,
+          tabBarInactiveTintColor: colors.inkLight,
+          tabBarStyle: styles.tabBar,
+          tabBarLabelStyle: styles.tabLabel,
         }}
-      />
-      <Tabs.Screen
-        name="books"
-        options={{
-          title: "My Books",
-          tabBarIcon: ({ color }) => (
-            <TabIcon emoji="📚" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <TabIcon emoji="👤" color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Scan",
+            tabBarIcon: ({ focused }) => (
+              <TabIcon emoji="📷" focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="books"
+          options={{
+            title: "My Books",
+            tabBarIcon: ({ focused }) => (
+              <TabIcon emoji="📚" focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ focused }) => (
+              <TabIcon emoji="👤" focused={focused} />
+            ),
+          }}
+        />
+      </Tabs>
+    </>
   );
 }
 
-import { Text } from "react-native";
-
-function TabIcon({ emoji }: { emoji: string; color: string }) {
-  return <Text style={{ fontSize: 22 }}>{emoji}</Text>;
+function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconFocused]}>
+      <Text style={styles.iconEmoji}>{emoji}</Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: colors.bgCream,
+    borderTopWidth: 2,
+    borderTopColor: colors.shelfBrown,
+    ...shadows.tabBar,
     height: 88,
-    paddingTop: 8,
+    paddingTop: spacing.sm,
   },
   tabLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconFocused: {
+    borderBottomWidth: 3,
+    borderBottomColor: colors.beamYellow,
+  },
+  iconEmoji: {
+    fontSize: 22,
   },
 });

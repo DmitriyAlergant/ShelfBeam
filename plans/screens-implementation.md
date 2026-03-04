@@ -22,16 +22,16 @@ Partially already done, but needs a revision to adhere to Design Guidelines that
 
 Get the app running end-to-end: open app → sign in → pick a reader → land on tabs. No real content yet, just the skeleton that every subsequent task plugs into.
 
-- [ ] **Design** the visual language: define a `theme.ts` with colors, spacing, typography, and shared component primitives (Button, Card, Avatar, ScreenWrapper). Kid-friendly palette — bright but not garish.
-- [ ] **Root layout** (`app/_layout.tsx`): ClerkProvider + SafeAreaProvider + slot. Auth gate that redirects unauthenticated users to `(auth)` group.
-- [ ] **Auth screens** (`app/(auth)/sign-in.tsx`, `sign-up.tsx`): Clerk `<SignIn>` / `<SignUp>` components with BookBeam branding (logo, tagline, background color).
-- [ ] **User sync hook**: on first successful sign-in, call `POST /api/users/sync` to create the `app_user` record. Store the `appUserId` in React context.
-- [ ] **Profile Picker screen** (`app/(auth)/profile-picker.tsx`): fetch `GET /api/profiles`, render avatar cards + "Add New Reader" card. Tapping a profile stores `activeProfileId` in context and navigates to `(main)`.
-- [ ] **Quick-add profile modal**: minimal form (name + avatar grid) → `POST /api/profiles`. Returns to picker with new card visible.
-- [ ] **Tab navigator** (`app/(main)/(tabs)/_layout.tsx`): three tabs — Scan, My Books, Profile — with icons and labels. Each tab shows a placeholder screen with the tab name.
-- [ ] **Top bar profile switcher**: persistent header component across all tabs showing current reader avatar+name; tap opens a bottom sheet to switch reader.
-- [ ] **Validate**: launch in iOS Simulator, sign in with Clerk test user, create a profile, land on tabs, switch profiles. Confirm backend receives sync + profile calls (curl / logs).
-- [ ] **Polish**: transitions, loading states, error handling for network failures on sync/profile calls.
+- [x] **Design** the visual language: define a `theme.ts` with colors, spacing, typography, and shared component primitives (Button, Card, Avatar, ScreenWrapper). Kid-friendly palette — bright but not garish.
+- [x] **Root layout** (`app/_layout.tsx`): ClerkProvider + SafeAreaProvider + slot. Auth gate that redirects unauthenticated users to `(auth)` group.
+- [x] **Auth screens** (`app/(auth)/sign-in.tsx`, `sign-up.tsx`): Clerk `<SignIn>` / `<SignUp>` components with BookBeam branding (logo, tagline, background color).
+- [x] **User sync hook**: on first successful sign-in, call `POST /api/users/sync` to create the `app_user` record. Store the `appUserId` in React context.
+- [x] **Profile Picker screen** (`app/(auth)/profile-picker.tsx`): fetch `GET /api/profiles`, render avatar cards + "Add New Reader" card. Tapping a profile stores `activeProfileId` in context and navigates to `(main)`.
+- [x] **Quick-add profile modal**: minimal form (name + avatar grid) → `POST /api/profiles`. Returns to picker with new card visible.
+- [x] **Tab navigator** (`app/(main)/(tabs)/_layout.tsx`): three tabs — Scan, My Books, Profile — with icons and labels. Each tab shows a placeholder screen with the tab name.
+- [x] **Top bar profile switcher**: persistent header component across all tabs showing current reader avatar+name; tap opens a bottom sheet to switch reader.
+- [x] **Validate**: launch in iOS Simulator, sign in with Clerk test user, create a profile, land on tabs, switch profiles. Confirm backend receives sync + profile calls (curl / logs).
+- [x] **Polish**: transitions, loading states, error handling for network failures on sync/profile calls.
 
 ---
 
