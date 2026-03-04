@@ -43,6 +43,19 @@ export default function SignInScreen() {
       setSsoLoading(strategy);
       setError(null);
       try {
+        if (Platform.OS === "web") {
+          // Web: use signIn.sso() for redirect-based flow (popups get blocked)
+          if (!signIn) throw new Error("Sign in not loaded");
+          await signIn.create({ strategy, redirectUrl: "/sso-callback" });
+          const { firstFactorVerification } = signIn;
+          const redirectUrl =
+            firstFactorVerification?.externalVerificationRedirectURL;
+          if (redirectUrl) {
+            window.location.href = redirectUrl.toString();
+          }
+          return;
+        }
+        // Native: use expo-web-browser based SSO flow
         const { createdSessionId, setActive: ssoSetActive } =
           await startSSOFlow({ strategy });
 
@@ -58,7 +71,7 @@ export default function SignInScreen() {
         setSsoLoading(null);
       }
     },
-    [startSSOFlow, router],
+    [signIn, startSSOFlow, router],
   );
 
   const onSignIn = async () => {
