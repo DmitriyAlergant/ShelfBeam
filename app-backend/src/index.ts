@@ -1,9 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
-import path from "path";
 import { clerkMiddleware } from "@clerk/express";
 import { runMigrations } from "./db/migrate";
 import { adminAuthBypass } from "./middleware/admin-auth";
+import { getFileStream } from "./lib/s3";
+import landingRouter from "./routes/landing";
 import healthRouter from "./routes/health";
 import usersRouter from "./routes/users";
 import profilesRouter from "./routes/profiles";
@@ -22,6 +23,9 @@ async function main() {
 
   const app = express();
 
+  // Landing page — public, no auth
+  app.use(landingRouter);
+
   app.use(cors());
   app.use(express.json());
   app.use(adminAuthBypass);
@@ -31,8 +35,20 @@ async function main() {
     clerkMiddleware()(req, res, next);
   });
 
-  // Static file serving for uploaded images
-  app.use("/uploads", express.static("/data/uploads"));
+  // Proxy uploaded images from S3
+  app.get("/uploads/:key", async (req: Request, res: Response) => {
+    try {
+      const { stream, contentType } = await getFileStream(req.params.key);
+      res.setHeader("Content-Type", contentType);
+      stream.pipe(res);
+    } catch (err: any) {
+      if (err.Code === "NoSuchKey" || err.name === "NoSuchKey") {
+        res.status(404).json({ error: "Image not found" });
+        return;
+      }
+      throw err;
+    }
+  });
 
   app.use(healthRouter);
   app.use(usersRouter);

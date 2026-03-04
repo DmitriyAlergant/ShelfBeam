@@ -23,7 +23,6 @@ ADMIN_API_KEY = os.environ["ADMIN_API_KEY"]
 TEST_USER_ID = os.environ["TEST_USER_ID"]
 
 POLL_INTERVAL_SECONDS = 5
-UPLOADS_DIR = "/data/uploads"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -167,21 +166,13 @@ def get_reader_context(profile_id: str) -> str:
 
 
 def load_image_as_base64(image_url: str) -> tuple[str, str]:
-    """Load image from uploads volume and return base64 + media type."""
-    # image_url is like /uploads/abc123.jpg
-    filename = image_url.removeprefix("/uploads/").lstrip("/")
-    filepath = os.path.join(UPLOADS_DIR, filename)
+    """Fetch image via backend proxy and return base64 + media type."""
+    url = f"{API_BASE_URL}{image_url}"
+    resp = httpx.get(url, headers=ADMIN_HEADERS, timeout=30)
+    resp.raise_for_status()
 
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Image not found at {filepath}")
-
-    ext = filepath.rsplit(".", 1)[-1].lower()
-    media_type_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
-    media_type = media_type_map.get(ext, "image/jpeg")
-
-    with open(filepath, "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
+    media_type = resp.headers.get("content-type", "image/jpeg")
+    data = base64.b64encode(resp.content).decode("utf-8")
     return data, media_type
 
 

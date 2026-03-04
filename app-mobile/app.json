@@ -25,12 +25,24 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bookbeam"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bookbeam"
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-asset",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "expo-updates"
     ]
   }
 }

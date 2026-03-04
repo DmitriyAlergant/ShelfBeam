@@ -6,18 +6,9 @@ import crypto from "crypto";
 import { db } from "../db";
 import { appUser, scan } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
+import { uploadFile } from "../lib/s3";
 
-const UPLOAD_DIR = "/data/uploads";
-
-const storage = multer.diskStorage({
-  destination: UPLOAD_DIR,
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `${crypto.randomUUID()}${ext}`);
-  },
-});
-
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -31,7 +22,11 @@ router.post("/api/scans/upload", requireAuth(), upload.single("image"), async (r
     return;
   }
 
-  const imageUrl = `/uploads/${req.file.filename}`;
+  const ext = path.extname(req.file.originalname) || ".jpg";
+  const key = `${crypto.randomUUID()}${ext}`;
+  await uploadFile(key, req.file.buffer, req.file.mimetype);
+
+  const imageUrl = `/uploads/${key}`;
   res.json({ image_url: imageUrl });
 });
 
