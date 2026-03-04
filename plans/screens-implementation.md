@@ -66,17 +66,17 @@ Build every backend endpoint the remaining screens need. Validate each with curl
 
 The hero flow of the app. User takes a photo, sees detected books, gets recommendations.
 
-- [ ] **Scan Home screen** (`app/(main)/(tabs)/scan.tsx`): fetch `GET /api/scans`, render a FlatList of scan cards (thumbnail, date, book count, status badge). "Scan a Shelf" FAB button. Empty state illustration for first-time users.
-- [ ] **Camera modal** (`app/(main)/camera.tsx`): `expo-camera` for capture + `expo-image-picker` for gallery. Preview captured image with retake/use buttons. On "use" → upload image via `POST /api/scans/upload`, then `POST /api/scans` → navigate to Scan Detail.
-- [ ] **Scan Detail screen** (`app/(main)/scan-detail.tsx`): the richest screen.
+- [x] **Scan Home screen** (`app/(main)/(tabs)/scan.tsx`): fetch `GET /api/scans`, render a FlatList of scan cards (thumbnail, date, book count, status badge). "Scan a Shelf" FAB button. Empty state illustration for first-time users.
+- [x] **Camera modal** (`app/(main)/camera.tsx`): `expo-camera` for capture + `expo-image-picker` for gallery. Preview captured image with retake/use buttons. On "use" → upload image via `POST /api/scans/upload`, then `POST /api/scans` → navigate to Scan Detail.
+- [x] **Scan Detail screen** (`app/(main)/scan-detail.tsx`): the richest screen.
   - Collapsible shelf photo at top.
   - Processing status indicator — animated stepper: detecting → reading → looking_up → recommending → done. Poll `GET /api/scans/:id` every 2s while not `done`.
   - Detected books list: cover thumbnail (or spine crop), title, author, confidence badge, "Take this one" button → `POST /api/profiles/:id/history`.
   - Reader comment input field at top ("What are you looking for today?") — sends `PATCH /api/scans/:id`.
   - LLM recommendation panel: card with personalized text, "Re-run" button that triggers `PATCH /api/scans/:id` to reset recommendation status.
-- [ ] **API integration layer**: create `lib/api.ts` with typed fetch wrappers for all scan/book endpoints. Include auth token from Clerk session.
-- [ ] **Validate**: full flow in Simulator — tap FAB → take photo → see it upload → scan created → scan detail shows processing states → mock some detected books via curl PATCH → verify they render → tap "Take this one" → confirm history entry created.
-- [ ] **Polish**: skeleton loaders while fetching, pull-to-refresh on scan home, smooth animations on status stepper, haptic feedback on "Take this one".
+- [x] **API integration layer**: create `lib/api.ts` with typed fetch wrappers for all scan/book endpoints. Include auth token from Clerk session.
+- [x] **Validate**: full flow in Simulator — tap FAB → take photo → see it upload → scan created → scan detail shows processing states → mock some detected books via curl PATCH → verify they render → tap "Take this one" → confirm history entry created.
+- [x] **Polish**: skeleton loaders while fetching, pull-to-refresh on scan home, smooth animations on status stepper, haptic feedback on "Take this one".
 
 ---
 
