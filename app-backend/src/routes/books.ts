@@ -70,7 +70,7 @@ router.get("/api/books/:id", requireAuth(), async (req: Request, res: Response) 
   const rows = await db
     .select()
     .from(book)
-    .where(eq(book.id, req.params.id));
+    .where(eq(book.id, String(req.params.id)));
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Book not found" });

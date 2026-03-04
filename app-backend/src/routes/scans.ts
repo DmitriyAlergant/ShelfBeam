@@ -82,7 +82,7 @@ router.get("/api/scans/:id", requireAuth(), async (req: Request, res: Response) 
   const rows = await db
     .select()
     .from(scan)
-    .where(eq(scan.id, req.params.id));
+    .where(eq(scan.id, String(req.params.id)));
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Scan not found" });
@@ -109,7 +109,7 @@ router.patch("/api/scans/:id", requireAuth(), async (req: Request, res: Response
   const updated = await db
     .update(scan)
     .set(updates)
-    .where(eq(scan.id, req.params.id))
+    .where(eq(scan.id, String(req.params.id)))
     .returning();
 
   if (updated.length === 0) {

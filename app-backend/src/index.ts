@@ -38,7 +38,7 @@ async function main() {
   // Proxy uploaded images from S3
   app.get("/uploads/:key", async (req: Request, res: Response) => {
     try {
-      const { stream, contentType } = await getFileStream(req.params.key);
+      const { stream, contentType } = await getFileStream(String(req.params.key));
       res.setHeader("Content-Type", contentType);
       stream.pipe(res);
     } catch (err: any) {

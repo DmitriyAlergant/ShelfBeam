@@ -77,7 +77,7 @@ router.get("/api/profiles/:id", requireAuth(), async (req: Request, res: Respons
   const rows = await db
     .select()
     .from(readerProfile)
-    .where(eq(readerProfile.id, req.params.id));
+    .where(eq(readerProfile.id, String(req.params.id)));
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Profile not found" });
@@ -109,7 +109,7 @@ router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Respo
   const updated = await db
     .update(readerProfile)
     .set(updates)
-    .where(eq(readerProfile.id, req.params.id))
+    .where(eq(readerProfile.id, String(req.params.id)))
     .returning();
 
   if (updated.length === 0) {

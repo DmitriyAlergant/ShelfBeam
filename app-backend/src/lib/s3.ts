@@ -1,24 +1,35 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 
-const S3_ENDPOINT = process.env.S3_ENDPOINT ?? (() => { throw new Error("Missing required env S3_ENDPOINT"); })();
-const S3_BUCKET = process.env.S3_BUCKET ?? (() => { throw new Error("Missing required env S3_BUCKET"); })();
-const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY ?? (() => { throw new Error("Missing required env S3_ACCESS_KEY"); })();
-const S3_SECRET_KEY = process.env.S3_SECRET_KEY ?? (() => { throw new Error("Missing required env S3_SECRET_KEY"); })();
+function getEnv(name: string): string {
+  const val = process.env[name];
+  if (!val) throw new Error(`Missing required env ${name}`);
+  return val;
+}
 
-const s3 = new S3Client({
-  endpoint: S3_ENDPOINT,
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: S3_ACCESS_KEY,
-    secretAccessKey: S3_SECRET_KEY,
-  },
-  forcePathStyle: true,
-});
+let _s3: S3Client | null = null;
+let _bucket: string | null = null;
+
+function getS3(): { client: S3Client; bucket: string } {
+  if (!_s3) {
+    _s3 = new S3Client({
+      endpoint: getEnv("S3_ENDPOINT"),
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: getEnv("S3_ACCESS_KEY"),
+        secretAccessKey: getEnv("S3_SECRET_KEY"),
+      },
+      forcePathStyle: getEnv("S3_FORCE_PATH_STYLE") === "true",
+    });
+    _bucket = getEnv("S3_BUCKET");
+  }
+  return { client: _s3, bucket: _bucket! };
+}
 
 export async function uploadFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
-  await s3.send(new PutObjectCommand({
-    Bucket: S3_BUCKET,
+  const { client, bucket } = getS3();
+  await client.send(new PutObjectCommand({
+    Bucket: bucket,
     Key: key,
     Body: buffer,
     ContentType: contentType,
@@ -26,8 +37,9 @@ export async function uploadFile(key: string, buffer: Buffer, contentType: strin
 }
 
 export async function getFileStream(key: string): Promise<{ stream: Readable; contentType: string }> {
-  const resp = await s3.send(new GetObjectCommand({
-    Bucket: S3_BUCKET,
+  const { client, bucket } = getS3();
+  const resp = await client.send(new GetObjectCommand({
+    Bucket: bucket,
     Key: key,
   }));
   return {

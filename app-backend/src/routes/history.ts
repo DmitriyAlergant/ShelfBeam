@@ -18,7 +18,7 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     })
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
-    .where(eq(bookHistoryEntry.readerProfileId, req.params.profileId));
+    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)));
 
   // Group by status
   const reading = rows.filter((r) => r.entry.status === "reading");
@@ -44,7 +44,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
     .from(bookHistoryEntry)
     .where(
       and(
-        eq(bookHistoryEntry.readerProfileId, req.params.profileId),
+        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
         eq(bookHistoryEntry.bookId, book_id),
       )
     );
@@ -57,7 +57,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
   const inserted = await db
     .insert(bookHistoryEntry)
     .values({
-      readerProfileId: req.params.profileId,
+      readerProfileId: String(req.params.profileId),
       bookId: book_id,
       source,
       sourceId: source_id || null,
@@ -87,8 +87,8 @@ router.patch("/api/profiles/:profileId/history/:entryId", requireAuth(), async (
     .set(updates)
     .where(
       and(
-        eq(bookHistoryEntry.id, req.params.entryId),
-        eq(bookHistoryEntry.readerProfileId, req.params.profileId),
+        eq(bookHistoryEntry.id, String(req.params.entryId)),
+        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
       )
     )
     .returning();
@@ -110,8 +110,8 @@ router.delete("/api/profiles/:profileId/history/:entryId", requireAuth(), async 
     .delete(bookHistoryEntry)
     .where(
       and(
-        eq(bookHistoryEntry.id, req.params.entryId),
-        eq(bookHistoryEntry.readerProfileId, req.params.profileId),
+        eq(bookHistoryEntry.id, String(req.params.entryId)),
+        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
       )
     )
     .returning();
