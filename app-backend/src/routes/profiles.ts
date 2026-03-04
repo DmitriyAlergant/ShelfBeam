@@ -83,6 +83,7 @@ router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Respo
   if (gender !== undefined) updates.gender = gender;
   if (languages !== undefined) updates.languages = languages;
   if (interests !== undefined) updates.interests = interests;
+  if (notes !== undefined) updates.notes = notes;
 
   const updated = await db
     .update(readerProfile)

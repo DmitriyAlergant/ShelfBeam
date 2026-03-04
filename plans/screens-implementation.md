@@ -84,13 +84,13 @@ The hero flow of the app. User takes a photo, sees detected books, gets recommen
 
 Complete the remaining two tabs and all their sub-screens.
 
-- [ ] **Book History screen** (`app/(main)/(tabs)/books.tsx`): two sections — "Currently Reading" and "Finished". Each card shows cover, title, author, source tag ("From scan" / "Logged by you"), emoji reaction row. "Tell us what you've read" button at top.
-- [ ] **Book Detail modal** (`app/(main)/book-detail.tsx`): full cover image, title, author, description (from raw_metadata), emoji reaction picker (toggle grid of ~12 emojis), reading status toggle (reading ↔ finished). Changes save immediately via `PATCH /api/profiles/:id/history/:entryId`.
-- [ ] **Reading Log Entry screen** (`app/(main)/reading-log-entry.tsx`): large text input area with placeholder "Tell us about books you've been reading...". Microphone icon (triggers OS dictation via `textContentType`). Submit button → `POST /api/reading-log/parse` → navigate to Reading Log Confirmation.
-- [ ] **Reading Log Confirmation screen** (`app/(main)/reading-log-confirmation.tsx`): render parsed results as editable cards (title, author, status dropdown, reaction chips). "Looks good!" button → batch `POST /api/books` + `POST /api/profiles/:id/history` for each → navigate back to Book History.
-- [ ] **Reader Profile screen** (`app/(main)/(tabs)/profile.tsx`): scrollable form with avatar grid picker, name input, birth year picker, gender selector, languages multi-select chips, interests tag input, freeform notes textarea. Auto-save on blur or explicit "Save" button → `PATCH /api/profiles/:id`.
-- [ ] **Validate**: add books via reading log entry flow end-to-end → confirm they appear in history → tap a book → see detail → toggle emoji reactions → verify PATCH calls. Edit profile fields → verify persistence.
-- [ ] **Polish**: empty states for history, keyboard-avoiding views on forms, smooth sheet animations for book detail modal, reaction emoji animations.
+- [x] **Book History screen** (`app/(main)/(tabs)/books.tsx`): two sections — "Currently Reading" and "Finished". Each card shows cover, title, author, source tag ("From scan" / "Logged by you"), emoji reaction row. "Tell us what you've read" button at top.
+- [x] **Book Detail modal** (`app/(main)/book-detail.tsx`): full cover image, title, author, description (from raw_metadata), emoji reaction picker (toggle grid of ~12 emojis), reading status toggle (reading ↔ finished). Changes save immediately via `PATCH /api/profiles/:id/history/:entryId`.
+- [x] **Reading Log Entry screen** (`app/(main)/reading-log-entry.tsx`): large text input area with placeholder "Tell us about books you've been reading...". Microphone icon (triggers OS dictation via `textContentType`). Submit button → `POST /api/reading-log/parse` → navigate to Reading Log Confirmation.
+- [x] **Reading Log Confirmation screen** (`app/(main)/reading-log-confirmation.tsx`): render parsed results as editable cards (title, author, status dropdown, reaction chips). "Looks good!" button → batch `POST /api/books` + `POST /api/profiles/:id/history` for each → navigate back to Book History.
+- [x] **Reader Profile screen** (`app/(main)/(tabs)/profile.tsx`): scrollable form with avatar grid picker, name input, birth year picker, gender selector, languages multi-select chips, interests tag input, freeform notes textarea. Auto-save on blur or explicit "Save" button → `PATCH /api/profiles/:id`.
+- [x] **Validate**: add books via reading log entry flow end-to-end → confirm they appear in history → tap a book → see detail → toggle emoji reactions → verify PATCH calls. Edit profile fields → verify persistence.
+- [x] **Polish**: empty states for history, keyboard-avoiding views on forms, smooth sheet animations for book detail modal, reaction emoji animations.
 
 ---
 

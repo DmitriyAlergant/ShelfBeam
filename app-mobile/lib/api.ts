@@ -72,6 +72,7 @@ export type ProfileData = {
   gender: string | null;
   languages: string[] | null;
   interests: string[] | null;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 };

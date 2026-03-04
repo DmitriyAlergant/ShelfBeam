@@ -22,6 +22,7 @@ export const readerProfile = pgTable("reader_profile", {
   gender: text("gender"),
   languages: text("languages").array(),
   interests: text("interests").array(),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });
