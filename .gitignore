@@ -158,3 +158,6 @@ app-backend/drizzle/meta/
 
 # Docker
 pgdata/
+
+# ralphex progress logs
+.ralphex/progress/

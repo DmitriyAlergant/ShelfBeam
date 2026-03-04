@@ -8,11 +8,11 @@
 
 Set up DiceBear avatar generation so every screen that shows a reader profile has a unique cartoon avatar from day one.
 
-- [ ] **Install `@dicebear/core` + `@dicebear/avataaars`** in `app-mobile`. These generate SVGs client-side — no external API calls needed.
-- [ ] **Avatar component**: create a reusable `<DiceBearAvatar seed={string} size={number} />` component that renders an Avataaars SVG via `react-native-svg`. The `seed` is the `avatar_key` stored on the reader profile.
-- [ ] **Avatar picker widget**: a reusable picker that shows a grid of ~6 random avatar options + a "Randomize" button to shuffle them. Returns the selected seed. This widget will be used in profile creation and profile editing.
-- [ ] **Validate**: render avatars in a test screen, confirm different seeds produce different avatars, confirm SVGs render cleanly at various sizes (32, 64, 128).
-- [ ] **Polish**: smooth transition when randomizing, consistent sizing across all placements (picker card, header icon, profile form).
+- [x] **Install `@dicebear/core` + `@dicebear/avataaars`** in `app-mobile`. These generate SVGs client-side — no external API calls needed.
+- [x] **Avatar component**: create a reusable `<DiceBearAvatar seed={string} size={number} />` component that renders an Avataaars SVG via `react-native-svg`. The `seed` is the `avatar_key` stored on the reader profile.
+- [x] **Avatar picker widget**: a reusable picker that shows a grid of ~6 random avatar options + a "Randomize" button to shuffle them. Returns the selected seed. This widget will be used in profile creation and profile editing.
+- [x] **Validate**: render avatars in a test screen, confirm different seeds produce different avatars, confirm SVGs render cleanly at various sizes (32, 64, 128).
+- [x] **Polish**: smooth transition when randomizing, consistent sizing across all placements (picker card, header icon, profile form).
 
 ---
 
