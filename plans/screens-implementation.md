@@ -94,7 +94,7 @@ Complete the remaining two tabs and all their sub-screens.
 
 ## Task 5.5: Re-validate API routes
 
-- [ ] Retest and revalidate all previously implemented API routes via ADMIN_API_KEY auth bypass
+- [x] Retest and revalidate all previously implemented API routes via ADMIN_API_KEY auth bypass
 
 ## Task 6: Reading Log Parsing via LLM
 
