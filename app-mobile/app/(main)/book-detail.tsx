@@ -25,11 +25,7 @@ import {
   getHistory,
 } from "../../lib/api";
 import EmojiReactions from "../../components/EmojiReactions";
-
-const STATUS_OPTIONS = [
-  { key: "reading", label: "Currently Reading", emoji: "📖" },
-  { key: "finished", label: "Finished", emoji: "✅" },
-];
+import { STATUS_OPTIONS } from "../../lib/reading-status";
 
 export default function BookDetailScreen() {
   const { entryId, bookId } = useLocalSearchParams<{
@@ -60,8 +56,7 @@ export default function BookDetailScreen() {
 
         // Find the history entry
         const history = await getHistory(token, activeProfile.id);
-        const all = [...history.reading, ...history.finished];
-        const found = all.find((h) => h.entry.id === entryId);
+        const found = history.find((h) => h.entry.id === entryId);
         if (found) {
           setEntry(found.entry);
           setReactions(found.entry.reactions || []);

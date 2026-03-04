@@ -21,11 +21,7 @@ import {
   type ParsedBookEntry,
 } from "../../lib/api";
 import EmojiReactions from "../../components/EmojiReactions";
-
-const STATUS_OPTIONS = [
-  { key: "reading", label: "Reading" },
-  { key: "finished", label: "Finished" },
-];
+import { STATUS_OPTIONS } from "../../lib/reading-status";
 
 type EditableEntry = ParsedBookEntry & {
   removed: boolean;

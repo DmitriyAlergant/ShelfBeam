@@ -13,6 +13,7 @@ import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getHistory, type HistoryWithBook } from "../../../lib/api";
+import { STATUS_EMOJI } from "../../../lib/reading-status";
 
 const SOURCE_LABELS: Record<string, string> = {
   scan: "From scan",
@@ -23,8 +24,7 @@ export default function MyBooks() {
   const router = useRouter();
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
-  const [reading, setReading] = useState<HistoryWithBook[]>([]);
-  const [finished, setFinished] = useState<HistoryWithBook[]>([]);
+  const [entries, setEntries] = useState<HistoryWithBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -33,8 +33,7 @@ export default function MyBooks() {
     const token = await getToken();
     if (!token) return;
     const data = await getHistory(token, activeProfile.id);
-    setReading(data.reading);
-    setFinished(data.finished);
+    setEntries(data);
   }, [activeProfile, getToken]);
 
   useEffect(() => {
@@ -74,6 +73,16 @@ export default function MyBooks() {
               </Text>
             )}
             <View style={styles.bookMeta}>
+              <View style={[
+                styles.statusBadge,
+                entry.status === "reading" && styles.statusBadgeReading,
+                entry.status === "finished" && styles.statusBadgeFinished,
+                entry.status === "abandoned" && styles.statusBadgeAbandoned,
+              ]}>
+                <Text style={styles.statusBadgeText}>
+                  {STATUS_EMOJI[entry.status] || ""} {entry.status}
+                </Text>
+              </View>
               <View style={styles.sourceBadge}>
                 <Text style={styles.sourceText}>
                   {SOURCE_LABELS[entry.source] || entry.source}
@@ -100,19 +109,6 @@ export default function MyBooks() {
     );
   }
 
-  const hasBooks = reading.length > 0 || finished.length > 0;
-
-  const sections = [
-    ...(reading.length > 0
-      ? [{ type: "header" as const, title: "Currently Reading" }]
-      : []),
-    ...reading.map((item) => ({ type: "book" as const, data: item })),
-    ...(finished.length > 0
-      ? [{ type: "header" as const, title: "Finished" }]
-      : []),
-    ...finished.map((item) => ({ type: "book" as const, data: item })),
-  ];
-
   return (
     <View style={styles.container}>
       <Text style={styles.header}>My Books</Text>
@@ -126,7 +122,7 @@ export default function MyBooks() {
         <Text style={styles.ctaText}>Tell us what you've read</Text>
       </TouchableOpacity>
 
-      {!hasBooks ? (
+      {entries.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>📚</Text>
           <Text style={styles.emptyTitle}>No books yet</Text>
@@ -136,18 +132,9 @@ export default function MyBooks() {
         </View>
       ) : (
         <FlatList
-          data={sections}
-          keyExtractor={(item, idx) =>
-            item.type === "header" ? `h-${item.title}` : `b-${item.data.entry.id}`
-          }
-          renderItem={({ item }) => {
-            if (item.type === "header") {
-              return (
-                <Text style={styles.sectionHeader}>{item.title}</Text>
-              );
-            }
-            return renderBookCard({ item: item.data });
-          }}
+          data={entries}
+          keyExtractor={(item) => item.entry.id}
+          renderItem={renderBookCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -204,13 +191,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.xxl,
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontFamily: fonts.heading,
-    color: colors.inkDark,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
   bookCard: {
     backgroundColor: colors.bgWarm,
     borderRadius: radius.lg,
@@ -251,6 +231,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     marginTop: spacing.xs,
+  },
+  statusBadge: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  statusBadgeReading: {
+    backgroundColor: colors.beamYellowLight,
+  },
+  statusBadgeFinished: {
+    backgroundColor: colors.tealLight,
+  },
+  statusBadgeAbandoned: {
+    backgroundColor: "rgba(255,107,107,0.12)",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.inkDark,
   },
   sourceBadge: {
     backgroundColor: colors.tealLight,

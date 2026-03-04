@@ -271,13 +271,8 @@ export type HistoryWithBook = {
   book: BookData;
 };
 
-export type HistoryResponse = {
-  reading: HistoryWithBook[];
-  finished: HistoryWithBook[];
-};
-
 export function getHistory(token: string, profileId: string) {
-  return apiFetch<HistoryResponse>(`/api/profiles/${profileId}/history`, { token });
+  return apiFetch<HistoryWithBook[]>(`/api/profiles/${profileId}/history`, { token });
 }
 
 export function addToHistory(

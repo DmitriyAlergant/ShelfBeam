@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth, getAuth } from "@clerk/express";
 import { db } from "../db";
 import { bookHistoryEntry, book } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -18,13 +18,10 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     })
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
-    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)));
+    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)))
+    .orderBy(desc(bookHistoryEntry.createdAt));
 
-  // Group by status
-  const reading = rows.filter((r) => r.entry.status === "reading");
-  const finished = rows.filter((r) => r.entry.status === "finished");
-
-  res.json({ reading, finished });
+  res.json(rows);
 });
 
 // Add book to history

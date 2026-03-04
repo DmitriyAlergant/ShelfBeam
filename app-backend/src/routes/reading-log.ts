@@ -17,7 +17,7 @@ For each book mentioned, extract:
 - title: The book title (best guess, capitalize properly). Do NOT append "(series)" to the title — use the is_series field instead.
 - author: The author if mentioned or well-known to you based on the title, otherwise null
 - is_series: true if the reader is referring to an entire book series rather than a single book, false otherwise
-- inferred_status: Either "reading" (currently reading / started) or "finished" (completed / done / read)
+- inferred_status: One of "reading" (currently reading / started), "finished" (completed / done / read), or "abandoned" (stopped reading / gave up / didn't finish / abandoned)
 - inferred_reactions: An array of emoji reactions that match the sentiment expressed. Pick from these emojis ONLY: 👍 👎 ❤️ 🔥 😂 😢 😱 🤔 🤯 💤 😡
   - If they loved it: ❤️ and/or 👍
   - If it was exciting/thrilling: 🔥 and/or 😱
