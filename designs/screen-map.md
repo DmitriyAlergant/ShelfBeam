@@ -2,7 +2,7 @@
 
 ## Navigation Structure
 
-**Auth Gate** (Clerk) → **Tab Navigator** (3 tabs)
+**Auth Gate** (Clerk) → **Profile Picker** → **Tab Navigator** (3 tabs)
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -13,15 +13,32 @@
 │  └───────────┘    └──────────────────────────┘  │
 └────────────────────────┬────────────────────────┘
                          ▼
-         ┌──── TAB NAVIGATOR ────┐
-         │                       │
-    ┌────┴────┐  ┌───────┐  ┌───┴────┐
-    │  Scan   │  │ Books  │  │Profile │
-    │   📷    │  │  📚   │  │  👤    │
-    └────┬────┘  └───┬───┘  └───┬────┘
-         │           │          │
-         ▼           ▼          ▼
+              ┌─────────────────────┐
+              │   Who's Reading?    │
+              │                     │
+              │  [Avatar] [Avatar]  │
+              │   Emma     Jake     │
+              │                     │
+              │      [ + New ]      │
+              └─────────┬───────────┘
+                        ▼
+┌───────────────────────────────────────────────┐
+│  TOP BAR: [Avatar+Name ▼]           [Log out] │
+│  ─────────────────────────────────────────────│
+│         ┌──── TAB NAVIGATOR ────┐             │
+│         │                       │             │
+│    ┌────┴────┐  ┌───────┐  ┌───┴────┐        │
+│    │  Scan   │  │ Books  │  │Profile │        │
+│    │   📷    │  │  📚   │  │  👤    │        │
+│    └────┬────┘  └───┬───┘  └───┬────┘        │
+└─────────┴───────────┴───────────┴─────────────┘
 ```
+
+### Profile Switcher (persistent top bar)
+- Shows active reader's **avatar + name** in top-left of every screen
+- Tap to open dropdown/bottom sheet: list of reader profiles + "Add reader" option
+- Switching profiles reloads all tab data for the selected reader
+- On first login (no profiles yet) → forced into "Who's Reading?" picker which redirects to Profile creation
 
 ---
 
@@ -64,7 +81,7 @@
 
 ### Screen 2.3 — Story Entry ("Tell us what you've read")
 - Large freeform text area — prompt: "Tell us about books you've read! What did you like? What didn't you like?"
-- **Microphone button for dictation** (encouraged — kids talk easier than type)
+- **Microphone entry suyggested** (use built-in OS dictation)
 - Examples as placeholder/hints: "I read Harry Potter and loved the magic parts but it was a little scary..."
 - Submit sends raw text to backend LLM which parses and returns:
   - Extracted books (title, author via metadata lookup)
@@ -77,8 +94,8 @@
 
 ### Screen 2.2 — Book Detail (modal or push screen)
 - Cover image, title, author, description
-- **Reaction picker**: grid of predefined emojis, tap to add (multiple of same allowed)
-- Current reactions shown as pill badges with counts
+- **Reaction picker**: grid of predefined emojis, tap to toggle on/off
+- Active reactions shown as highlighted pills
 - "Remove from history" option
 
 ---
@@ -92,6 +109,7 @@
 - Gender (selector)
 - Languages Spoken (multi-select chips)
 - Interests (tag input or chips)
+- Freeform note
 
 ---
 
@@ -101,16 +119,17 @@
 |---|--------|------|
 | 1 | Welcome / Splash | Auth gate |
 | 2 | Sign In/Up | Clerk |
-| 3 | Scan Home | Tab 1 - list |
-| 4 | Camera | Modal |
-| 5 | Scan Detail | Push from list |
-| 6 | Book History | Tab 2 - list |
-| 7 | Book Detail | Modal/push |
-| 8 | Story Entry | Modal - dictation/text |
-| 9 | Story Confirmation | Push from Story Entry |
-| 10 | Profile | Tab 3 - form |
+| 3 | Who's Reading? (Profile Picker) | Post-auth gate / switcher |
+| 4 | Scan Home | Tab 1 - list |
+| 5 | Camera | Modal |
+| 6 | Scan Detail | Push from list |
+| 7 | Book History | Tab 2 - list |
+| 8 | Book Detail | Modal/push |
+| 9 | Story Entry | Modal - dictation/text |
+| 10 | Story Confirmation | Push from Story Entry |
+| 11 | Profile | Tab 3 - form |
 
-**10 screens total**
+**11 screens total**
 
 ---
 
@@ -118,7 +137,7 @@
 
 1. **Scan tab is the default/home tab** — the primary action should be front and center
 2. **Scan Detail is the richest screen** — detected books + recommendations. Worth the most design effort
-3. **Reactions are emoji-tap, not rating** — low friction for kids, playful, supports multiples
+3. **Reactions are emoji toggle, not rating** — low friction for kids, playful, tap to add/remove
 4. **Profile is a single scrollable form** — no sub-screens needed
 5. **No recommendation history** — each scan's recommendation is live/current only
 6. **"Tell us what you've read"** — kids dictate/type a freeform story about their reading. Backend LLM parses into structured book entries with inferred reactions. Confirmation step before merge into history

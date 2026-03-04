@@ -4,12 +4,13 @@
 
 ```
 User (Clerk-managed)
- └── Reader Profile (1:1)
+ └── Reader Profile (1:N)
       ├── Scans (1:N)
-      │    ├── Scan Books (1:N)  ──▶  Book (shared catalog)
-      │    └── recommendation jsonb: ranked scan_books with comments
+      │    ├── detected_books jsonb: array with book_id refs ──▶ Book
+      │    └── recommendation jsonb: ranked refs into detected_books
       └── Book History Entries (1:N)  ──▶  Book (shared catalog)
            reactions: jsonb emoji array on each entry
+Book
 ```
 
 ---
@@ -30,12 +31,12 @@ Clerk handles auth. We store a minimal local record to own relational data.
 
 ### reader_profile
 
-One per user. Editable from Profile screen.
+Multiple per app_user (one parent account → many kid readers). Managed from Profile Picker + Profile screen.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
-| user_id | uuid | FK → app_user, unique |
+| user_id | uuid | FK → app_user |
 | name | text | Display name |
 | avatar_key | text | Key into predefined avatar library |
 | birth_year | smallint | e.g. 2015 |
@@ -77,36 +78,34 @@ A photo of a bookshelf submitted by a reader + workflow pipeline it brings forth
 | processing_task_started | timestampz | | 
 | processing_status | text | `detecting` · `reading` · `looking_up` · `recommending` · `done` · `failed` |
 | reader_comment | text | Nullable, editable — "What are you looking for today?" |
-| recommendation | jsonb | Nullable, LLM output — ranked scan_book refs with per-book comments (see below) |
+| detected_books | jsonb | Nullable, array of detected books from pipeline (see below) |
+| recommendation | jsonb | Nullable, LLM ranked recommendations referencing detected_books (see below) |
 | recommendation_summary | text | Nullable, LLM overall summary/intro text |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
+**`detected_books` jsonb structure:**
+```json
+[
+  {
+    "index": 0,
+    "book_id": "uuid",
+    "confidence": 0.92,
+    "spine_bbox": [x, y, w, h],
+    "spine_img": "base64...",
+    "raw_ocr_text": "Harry Potter and the..."
+  }
+]
+```
+
 **`recommendation` jsonb structure:**
 ```json
 [
-  { "scan_book_id": "uuid", "rank": 1, "comment": "Perfect for you because..." },
-  { "scan_book_id": "uuid", "rank": 2, "comment": "You might also enjoy..." }
+  { "book_index": 0, "rank": 1, "comment": "Perfect for you because..." },
+  { "book_index": 2, "rank": 2, "comment": "You might also enjoy..." }
 ]
 ```
-Overwritten on re-run.
-
----
-
-### scan_book
-
-Books detected in a scan. Join between scan and book catalog.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | PK |
-| scan_id | uuid | FK → scan |
-| book_id | uuid | FK → book |
-| confidence | real | Detection/OCR confidence 0.0–1.0 |
-| spine_bbox | jsonb | Nullable, bounding box coordinates on original image |
-| spine_img  | binary | image bytes from the detected spine bbox |
-| raw_ocr_text | text | Raw text extracted from spine — useful for debugging |
-| created_at | timestamptz | |
+`book_index` references `detected_books[].index`. Overwritten on re-run.
 
 ---
 
@@ -121,7 +120,8 @@ A book in the reader's personal history. Source is either a scan pick or an LLM-
 | book_id | uuid | FK → book |
 | source | text | `scan` · `story` |
 | source_id | uuid | Nullable — FK → scan.id when source=scan |
-| reactions | jsonb | Array of emoji strings, e.g. `["👍","👍","🔥","❤️"]` — dupes allowed |
+| comment | text | Nullable, freeform reader comment about the book |
+| reactions | jsonb | Array of emoji strings, e.g. `["👍","🔥","❤️"]` — toggle on/off |
 | status | text | `reading` · `finished` |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
