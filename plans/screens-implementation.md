@@ -39,26 +39,26 @@ Get the app running end-to-end: open app → sign in → pick a reader → land 
 
 Build every backend endpoint the remaining screens need. Validate each with curl before moving on.
 
-- [ ] **Design API contract**: document request/response shapes for all new endpoints below. Align with existing Drizzle schema and JSONB structures from `data-model.md`.
-- [ ] **Image upload**: `POST /api/scans/upload` — accept multipart image, save to `/data/uploads/` volume, return `image_url` path. Wire volume mount in `docker-compose.yml`.
-- [ ] **Scan CRUD**:
+- [x] **Design API contract**: document request/response shapes for all new endpoints below. Align with existing Drizzle schema and JSONB structures from `data-model.md`.
+- [x] **Image upload**: `POST /api/scans/upload` — accept multipart image, save to `/data/uploads/` volume, return `image_url` path. Wire volume mount in `docker-compose.yml`.
+- [x] **Scan CRUD**:
   - `POST /api/scans` — create scan record (reader_profile_id, image_url, reader_comment), set status `detecting`.
   - `GET /api/scans` — list scans for active reader profile, newest first.
   - `GET /api/scans/:id` — full scan detail including detected_books and recommendation.
   - `PATCH /api/scans/:id` — update processing_status, detected_books, recommendation (used by worker and re-run).
-- [ ] **Book CRUD**:
+- [x] **Book CRUD**:
   - `POST /api/books` — upsert by ISBN or title+author normalization. Return existing or new book record.
   - `GET /api/books/:id` — single book detail.
-- [ ] **Book history**:
+- [x] **Book history**:
   - `GET /api/profiles/:profileId/history` — list history entries joined with book data, grouped by status.
   - `POST /api/profiles/:profileId/history` — add book to history (book_id, source, status).
   - `PATCH /api/profiles/:profileId/history/:entryId` — update reactions array or status.
   - `DELETE /api/profiles/:profileId/history/:entryId` — remove entry.
-- [ ] **Reading log parsing** (stub): `POST /api/reading-log/parse` — accepts freeform text, returns mock parsed books array for now (real LLM integration deferred to Task 5). Shape: `[{title, author, inferred_status, inferred_reactions}]`.
-- [ ] **Profile update**: `PATCH /api/profiles/:id` — update all reader profile fields (name, avatar, birth_year, gender, languages, interests, notes).
-- [ ] **Static file serving**: serve `/data/uploads/` as static route so mobile app can display shelf images.
-- [ ] **Validate every endpoint** with curl: create scan → upload image → verify file on disk → get scan → add book → add to history → update reactions → parse reading log stub. Log all calls.
-- [ ] **Error handling review**: ensure all routes return consistent error shapes `{error: string}`, and no swallowed exceptions.
+- [x] **Reading log parsing** (stub): `POST /api/reading-log/parse` — accepts freeform text, returns mock parsed books array for now (real LLM integration deferred to Task 5). Shape: `[{title, author, inferred_status, inferred_reactions}]`.
+- [x] **Profile update**: `PATCH /api/profiles/:id` — update all reader profile fields (name, avatar, birth_year, gender, languages, interests, notes).
+- [x] **Static file serving**: serve `/data/uploads/` as static route so mobile app can display shelf images.
+- [x] **Validate every endpoint** with curl: create scan → upload image → verify file on disk → get scan → add book → add to history → update reactions → parse reading log stub. Log all calls.
+- [x] **Error handling review**: ensure all routes return consistent error shapes `{error: string}`, and no swallowed exceptions.
 
 ---
 

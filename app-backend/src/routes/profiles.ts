@@ -66,4 +66,36 @@ router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) 
   res.status(201).json(inserted[0]);
 });
 
+// Update reader profile
+router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { name, avatar_key, birth_year, gender, languages, interests, notes } = req.body;
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (name !== undefined) updates.name = name;
+  if (avatar_key !== undefined) updates.avatarKey = avatar_key;
+  if (birth_year !== undefined) updates.birthYear = birth_year;
+  if (gender !== undefined) updates.gender = gender;
+  if (languages !== undefined) updates.languages = languages;
+  if (interests !== undefined) updates.interests = interests;
+
+  const updated = await db
+    .update(readerProfile)
+    .set(updates)
+    .where(eq(readerProfile.id, req.params.id))
+    .returning();
+
+  if (updated.length === 0) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+
+  res.json(updated[0]);
+});
+
 export default router;

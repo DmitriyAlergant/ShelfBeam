@@ -29,9 +29,11 @@ services:
     volumes:
       - ./app-backend/src:/app/src
       - ./app-backend/drizzle:/app/drizzle
+      - uploads:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   pgdata:
+  uploads:
