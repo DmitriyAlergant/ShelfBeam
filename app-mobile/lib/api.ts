@@ -286,12 +286,13 @@ export type ParsedBookEntry = {
   inferred_reactions?: string[];
 };
 
-export function parseReadingLog(token: string, text: string) {
-  return apiFetch<ParsedBookEntry[]>("/api/reading-log/parse", {
+export async function parseReadingLog(token: string, text: string): Promise<ParsedBookEntry[]> {
+  const res = await apiFetch<{ parsed: ParsedBookEntry[]; raw_input: string }>("/api/reading-log/parse", {
     method: "POST",
     token,
     body: { text },
   });
+  return res.parsed;
 }
 
 // Helpers

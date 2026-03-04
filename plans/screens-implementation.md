@@ -100,11 +100,11 @@ Complete the remaining two tabs and all their sub-screens.
 
 Wire up real LLM-powered reading log parsing so the "Tell us what you've read" flow works end-to-end.
 
-- [ ] **Design prompt**: craft a system prompt that extracts structured book data from freeform kid input — title, author (if mentioned), reading status, inferred emotional reactions. Output as JSON array.
-- [ ] **Replace stub in `POST /api/reading-log/parse`**: call gpt-5.2 via OpenAI SDK (using `OPENAI_API_KEY`, `OPENAI_BASE_URL` from env). Retry once on malformed JSON response.
-- [ ] **Validate**: test with varied inputs via curl — "I read Harry Potter and it was amazing", "me and mom finished Diary of a Wimpy Kid, started Percy Jackson" — confirm parsed output is sensible.
-- [ ] **Wire to frontend**: confirm Reading Log Entry → Reading Log Confirmation → Book History flow works end-to-end with real parsing.
-- [ ] **Polish**: handle LLM timeouts gracefully (return error, don't hang), tune prompt for better extraction quality.
+- [x] **Design prompt**: craft a system prompt that extracts structured book data from freeform kid input — title, author (if mentioned), reading status, inferred emotional reactions. Output as JSON array.
+- [x] **Replace stub in `POST /api/reading-log/parse`**: call gpt-5.2 via OpenAI SDK (using `OPENAI_API_KEY`, `OPENAI_BASE_URL` from env). Retry once on malformed JSON response.
+- [x] **Validate**: test with varied inputs via curl — "I read Harry Potter and it was amazing", "me and mom finished Diary of a Wimpy Kid, started Percy Jackson" — confirm parsed output is sensible.
+- [x] **Wire to frontend**: confirm Reading Log Entry → Reading Log Confirmation → Book History flow works end-to-end with real parsing.
+- [x] **Polish**: handle LLM timeouts gracefully (return error, don't hang), tune prompt for better extraction quality.
 
 ---
 
