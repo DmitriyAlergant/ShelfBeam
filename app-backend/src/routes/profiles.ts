@@ -66,6 +66,27 @@ router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) 
   res.status(201).json(inserted[0]);
 });
 
+// Get single reader profile by ID
+router.get("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const rows = await db
+    .select()
+    .from(readerProfile)
+    .where(eq(readerProfile.id, req.params.id));
+
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+
+  res.json(rows[0]);
+});
+
 // Update reader profile
 router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
   const { userId } = getAuth(req);

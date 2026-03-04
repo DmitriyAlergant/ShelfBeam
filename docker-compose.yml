@@ -37,6 +37,24 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+      API_BASE_URL: http://app-backend:3000
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      TEST_USER_ID: ${TEST_USER_ID}
+    volumes:
+      - ./worker/src:/app/src
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
   uploads:

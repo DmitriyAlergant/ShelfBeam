@@ -112,9 +112,9 @@ Wire up real LLM-powered reading log parsing so the "Tell us what you've read" f
 
 Rudimentary stub: send the entire shelf photo to gpt-5.2 vision, get back detected books + recommendations in a single call. Implemented as a standalone Python worker.
 
-- [ ] **Design**: define the JSON contract the worker writes into `scan.detected_books` and `scan.recommendation`. Define the LLM prompt — "Here is a photo of a bookshelf. Identify all visible books (title, author). Then recommend the top 3 for a kid with these interests: {interests}." Response schema with retry on parse failure.
-- [ ] **Python worker**: standalone container that polls `scans` table for `processing_status = 'detecting'`. For each: fetch the image, call gpt-5.2 vision API, parse response, upsert books into `books` table, update `scan.detected_books` + `scan.recommendation`, set status to `done`.
-- [ ] **Docker Compose**: add `worker` service, mount source for hot reload, pass `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `DATABASE_URL` from env. Mount `/data/uploads/` volume (shared with app-backend).
-- [ ] **Validate on `sample-images/`**: place 2-3 real bookshelf photos in `sample-images/`, create scans pointing to them via curl, watch worker pick them up and process. Verify detected books and recommendations make sense.
-- [ ] **Polish**: error recovery — if LLM call fails, set status to `error` with message (not silent). Add basic logging. Frontend "Re-run" button resets status to `detecting` so worker re-processes.
+- [x] **Design**: define the JSON contract the worker writes into `scan.detected_books` and `scan.recommendation`. Define the LLM prompt — "Here is a photo of a bookshelf. Identify all visible books (title, author). Then recommend the top 3 for a kid with these interests: {interests}." Response schema with retry on parse failure.
+- [x] **Python worker**: standalone container that polls `scans` table for `processing_status = 'detecting'`. For each: fetch the image, call gpt-5.2 vision API, parse response, upsert books into `books` table, update `scan.detected_books` + `scan.recommendation`, set status to `done`.
+- [x] **Docker Compose**: add `worker` service, mount source for hot reload, pass `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `DATABASE_URL` from env. Mount `/data/uploads/` volume (shared with app-backend).
+- [x] **Validate on `sample-images/`**: place 2-3 real bookshelf photos in `sample-images/`, create scans pointing to them via curl, watch worker pick them up and process. Verify detected books and recommendations make sense.
+- [x] **Polish**: error recovery — if LLM call fails, set status to `error` with message (not silent). Add basic logging. Frontend "Re-run" button resets status to `detecting` so worker re-processes.
 
