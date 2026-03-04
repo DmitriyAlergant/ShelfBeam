@@ -155,7 +155,7 @@ dist/
 *.orig.*
 
 # Drizzle
-app-backend/drizzle/meta/
+# app-backend/drizzle/meta/ — must be committed for migrations to work
 
 # Docker
 pgdata/
