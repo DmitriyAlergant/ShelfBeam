@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import { clerkMiddleware } from "@clerk/express";
 import { runMigrations } from "./db/migrate";
+import { adminAuthBypass } from "./middleware/admin-auth";
 import healthRouter from "./routes/health";
 import usersRouter from "./routes/users";
 import profilesRouter from "./routes/profiles";
@@ -21,7 +22,12 @@ async function main() {
   const app = express();
 
   app.use(express.json());
-  app.use(clerkMiddleware());
+  app.use(adminAuthBypass);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Skip Clerk middleware entirely for admin-authenticated requests
+    if ((req as any).__adminBypass) return next();
+    clerkMiddleware()(req, res, next);
+  });
 
   // Static file serving for uploaded images
   app.use("/uploads", express.static("/data/uploads"));

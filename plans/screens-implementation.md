@@ -92,7 +92,9 @@ Complete the remaining two tabs and all their sub-screens.
 - [x] **Validate**: add books via reading log entry flow end-to-end → confirm they appear in history → tap a book → see detail → toggle emoji reactions → verify PATCH calls. Edit profile fields → verify persistence.
 - [x] **Polish**: empty states for history, keyboard-avoiding views on forms, smooth sheet animations for book detail modal, reaction emoji animations.
 
----
+## Task 5.5: Re-validate API routes
+
+- [ ] Retest and revalidate all previously implemented API routes via ADMIN_API_KEY auth bypass
 
 ## Task 6: Reading Log Parsing via LLM
 

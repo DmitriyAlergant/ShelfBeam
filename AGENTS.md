@@ -62,4 +62,6 @@ COMMIT OFTEN once validated that the feature is running:
 
 WHEN WORKING ON A PLAN assume the implementation agent is just as smart as you, most often IT IS a copy of yourself. Keep plans higher level for structure and review. DO NOT CODE INSIDE THE PLAN.
 
+ADMIN API AUTH BYPASS: The backend supports full Clerk auth bypass via two headers: `X-Admin-Key: <ADMIN_API_KEY>` and `X-Admin-User-Id: <clerk_user_id>`. Use this for curl testing, worker-to-API calls, and agentic validation instead of minting Clerk tokens. The middleware (`app-backend/src/middleware/admin-auth.ts`) runs before clerkMiddleware and overrides `req.auth` so all downstream `getAuth()`/`requireAuth()` work normally. `TEST_USER_ID` env var holds the primary dev user's Clerk ID — use it as the `X-Admin-User-Id` value. Example: `curl -H "X-Admin-Key: $ADMIN_API_KEY" -H "X-Admin-User-Id: $TEST_USER_ID" http://localhost:3000/api/profiles`.
+
 HOT RELOAD: all docker compose apps need to mount source code from the monorepo for hot reload (via docker compose, not via app-level Dockerfile). If we ever deploy to production into e.g. railway, that will not be using this docker compose yaml.
