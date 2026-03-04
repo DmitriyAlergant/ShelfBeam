@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 
@@ -58,8 +59,9 @@ export default function SignUpScreen() {
           return;
         }
         // Native: use expo-web-browser based SSO flow
+        const redirectUrl = Linking.createURL("/(auth)/sign-up");
         const { createdSessionId, setActive: ssoSetActive } =
-          await startSSOFlow({ strategy });
+          await startSSOFlow({ strategy, redirectUrl });
 
         if (createdSessionId && ssoSetActive) {
           await ssoSetActive({ session: createdSessionId });
