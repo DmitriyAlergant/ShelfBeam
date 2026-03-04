@@ -71,9 +71,11 @@ export default function ProfileScreen() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newInterest, setNewInterest] = useState("");
 
-  // Initialize from active profile
+  // Initialize from active profile (only on first load / profile switch)
+  const [initializedProfileId, setInitializedProfileId] = useState<string | null>(null);
   useEffect(() => {
-    if (!activeProfile) return;
+    if (!activeProfile || activeProfile.id === initializedProfileId) return;
+    setInitializedProfileId(activeProfile.id);
     setName(activeProfile.name || "");
     setAvatarKey(activeProfile.avatarKey || activeProfile.name);
     setBirthYear(activeProfile.birthYear ? String(activeProfile.birthYear) : "");
@@ -81,7 +83,7 @@ export default function ProfileScreen() {
     setLanguages(activeProfile.languages || []);
     setInterests(activeProfile.interests || []);
     setNotes(activeProfile.notes || "");
-  }, [activeProfile]);
+  }, [activeProfile, initializedProfileId]);
 
   const save = useCallback(
     async (
