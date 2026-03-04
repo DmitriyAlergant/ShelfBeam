@@ -18,10 +18,11 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.beamYellow,
+          tabBarActiveTintColor: colors.inkDark,
           tabBarInactiveTintColor: colors.inkLight,
           tabBarStyle: styles.tabBar,
           tabBarLabelStyle: styles.tabLabel,
+          tabBarIconStyle: { marginBottom: 4 },
         }}
       >
         <Tabs.Screen
@@ -80,14 +81,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
   iconFocused: {
-    borderBottomWidth: 3,
-    borderBottomColor: colors.beamYellow,
+    backgroundColor: "rgba(255,210,52,0.3)",
   },
   iconEmoji: {
     fontSize: 22,

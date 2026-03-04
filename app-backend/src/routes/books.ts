@@ -11,7 +11,7 @@ router.post("/api/books", requireAuth(), async (req: Request, res: Response) => 
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { title, author, isbn, cover_url, raw_metadata } = req.body;
+  const { title, author, isbn, cover_url, raw_metadata, is_series } = req.body;
   if (!title) {
     res.status(400).json({ error: "title is required" });
     return;
@@ -55,6 +55,7 @@ router.post("/api/books", requireAuth(), async (req: Request, res: Response) => 
       author: author || null,
       isbn: isbn || null,
       coverUrl: cover_url || null,
+      isSeries: is_series ?? null,
       rawMetadata: raw_metadata || null,
     })
     .returning();

@@ -32,7 +32,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { book_id, source, source_id, status, comment } = req.body;
+  const { book_id, source, source_id, status, comment, reactions } = req.body;
   if (!book_id || !source) {
     res.status(400).json({ error: "book_id and source are required" });
     return;
@@ -63,7 +63,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
       sourceId: source_id || null,
       status: status || "reading",
       comment: comment || null,
-      reactions: [],
+      reactions: reactions || [],
     })
     .returning();
 

@@ -20,20 +20,18 @@ import {
   addToHistory,
   type ParsedBookEntry,
 } from "../../lib/api";
+import EmojiReactions from "../../components/EmojiReactions";
 
 const STATUS_OPTIONS = [
   { key: "reading", label: "Reading" },
   { key: "finished", label: "Finished" },
 ];
 
-const REACTION_EMOJIS = [
-  "👍", "👎", "❤️", "🔥", "😂", "😢", "😱", "🤔", "🤯", "💤", "😡",
-];
-
 type EditableEntry = ParsedBookEntry & {
   removed: boolean;
   reactions: string[];
   status: string;
+  comment: string;
 };
 
 export default function ReadingLogConfirmationScreen() {
@@ -52,6 +50,7 @@ export default function ReadingLogConfirmationScreen() {
       removed: false,
       reactions: e.inferred_reactions || [],
       status: e.inferred_status || "reading",
+      comment: e.comment || "",
     }))
   );
 
@@ -95,16 +94,16 @@ export default function ReadingLogConfirmationScreen() {
       const book = await createBook(token, {
         title: entry.title,
         author: entry.author,
+        is_series: entry.is_series ?? false,
       });
 
       await addToHistory(token, activeProfile.id, {
         book_id: book.id,
         source: "reading_log",
         status: entry.status,
+        reactions: entry.reactions,
+        comment: entry.comment || undefined,
       });
-
-      // Update reactions if any
-      // Note: reactions are set after history entry creation via the entry itself
     }
 
     setSaving(false);
@@ -209,24 +208,24 @@ export default function ReadingLogConfirmationScreen() {
                 ))}
               </View>
 
-              {/* Reaction chips */}
-              <View style={styles.reactionRow}>
-                {REACTION_EMOJIS.map((emoji) => {
-                  const isSelected = entry.reactions.includes(emoji);
-                  return (
-                    <TouchableOpacity
-                      key={emoji}
-                      style={[
-                        styles.reactionChip,
-                        isSelected && styles.reactionChipSelected,
-                      ]}
-                      onPress={() => toggleReaction(idx, emoji)}
-                    >
-                      <Text style={styles.reactionChipEmoji}>{emoji}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              {/* Reaction chips — Slack-style */}
+              <View style={styles.reactionWrapper}>
+                <EmojiReactions
+                  reactions={entry.reactions}
+                  onToggle={(emoji) => toggleReaction(idx, emoji)}
+                  compact
+                />
               </View>
+
+              {/* Comment */}
+              <TextInput
+                style={styles.commentInput}
+                value={entry.comment}
+                onChangeText={(c) => updateEntry(idx, { comment: c })}
+                placeholder="Add a comment..."
+                placeholderTextColor={colors.inkLight}
+                multiline
+              />
             </View>
           );
         })}
@@ -365,27 +364,18 @@ const styles = StyleSheet.create({
   statusChipTextActive: {
     color: colors.inkDark,
   },
-  reactionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
+  reactionWrapper: {
     marginTop: spacing.md,
   },
-  reactionChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  commentInput: {
+    marginTop: spacing.md,
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
     backgroundColor: colors.bgCream,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reactionChipSelected: {
-    backgroundColor: colors.coralLight,
-    borderWidth: 2,
-    borderColor: colors.spineCoral,
-  },
-  reactionChipEmoji: {
-    fontSize: 16,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    minHeight: 36,
   },
   removedCard: {
     flexDirection: "row",

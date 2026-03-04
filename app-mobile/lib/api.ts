@@ -232,13 +232,14 @@ export type BookData = {
   author: string | null;
   isbn: string | null;
   coverUrl: string | null;
+  isSeries: boolean | null;
   rawMetadata: unknown;
   createdAt: string;
 };
 
 export function createBook(
   token: string,
-  data: { title: string; author?: string; isbn?: string; cover_url?: string }
+  data: { title: string; author?: string; isbn?: string; cover_url?: string; is_series?: boolean }
 ) {
   return apiFetch<BookData>("/api/books", {
     method: "POST",
@@ -282,7 +283,7 @@ export function getHistory(token: string, profileId: string) {
 export function addToHistory(
   token: string,
   profileId: string,
-  data: { book_id: string; source: string; source_id?: string; status?: string }
+  data: { book_id: string; source: string; source_id?: string; status?: string; reactions?: string[]; comment?: string }
 ) {
   return apiFetch<HistoryEntry>(`/api/profiles/${profileId}/history`, {
     method: "POST",
@@ -315,8 +316,10 @@ export function deleteHistoryEntry(token: string, profileId: string, entryId: st
 export type ParsedBookEntry = {
   title: string;
   author?: string;
+  is_series?: boolean;
   inferred_status?: string;
   inferred_reactions?: string[];
+  comment?: string | null;
 };
 
 export async function parseReadingLog(token: string, text: string): Promise<ParsedBookEntry[]> {

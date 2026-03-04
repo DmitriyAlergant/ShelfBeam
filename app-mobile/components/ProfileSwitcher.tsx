@@ -68,12 +68,6 @@ export function ProfileSwitcher() {
           <Text style={styles.chevron}>▾</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => signOut()}
-          style={styles.logoutButton}
-        >
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
       </View>
 
       <Modal visible={showSheet} animationType="slide" transparent>
@@ -124,8 +118,15 @@ export function ProfileSwitcher() {
               onPress={handleSwitchReader}
             >
               <Text style={sheetStyles.switchText}>
-                Change Reader or Add New
+                Manage Readers
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={sheetStyles.logoutButton}
+              onPress={() => { setShowSheet(false); signOut(); }}
+            >
+              <Text style={sheetStyles.logoutText}>Log Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -160,15 +161,6 @@ const styles = StyleSheet.create({
   chevron: {
     fontSize: 14,
     color: colors.inkMedium,
-  },
-  logoutButton: {
-    paddingVertical: spacing.sm,
-    paddingLeft: spacing.md,
-  },
-  logoutText: {
-    fontSize: 14,
-    fontFamily: fonts.bodyMedium,
-    color: colors.spineCoral,
   },
 });
 
@@ -233,5 +225,15 @@ const sheetStyles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.bodyMedium,
     color: colors.shelfBrown,
+  },
+  logoutButton: {
+    marginTop: spacing.sm,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  logoutText: {
+    fontSize: 15,
+    fontFamily: fonts.bodyMedium,
+    color: colors.spineCoral,
   },
 });

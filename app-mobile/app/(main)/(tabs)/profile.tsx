@@ -57,7 +57,7 @@ const INTEREST_SUGGESTIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { getToken } = useAppAuth();
+  const { getToken, signOut } = useAppAuth();
   const { activeProfile, setActiveProfile } = useAppContext();
 
   const [name, setName] = useState("");
@@ -375,6 +375,13 @@ export default function ProfileScreen() {
             textAlignVertical="top"
           />
         </View>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => signOut()}
+        >
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -540,5 +547,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.heading,
     color: colors.inkDark,
+  },
+  logoutButton: {
+    marginTop: spacing.md,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.bgWarm,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontFamily: fonts.bodyMedium,
+    color: colors.spineCoral,
   },
 });

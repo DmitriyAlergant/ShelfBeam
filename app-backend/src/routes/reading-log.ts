@@ -14,8 +14,9 @@ const openai = new OpenAI({
 const SYSTEM_PROMPT = `You are a reading log parser for a kids' book app called BookBeam. A child (or their parent) will describe books they've been reading in freeform text. Your job is to extract structured book data from their input.
 
 For each book mentioned, extract:
-- title: The book title (best guess, capitalize properly)
-- author: The author if mentioned, otherwise null
+- title: The book title (best guess, capitalize properly). Do NOT append "(series)" to the title — use the is_series field instead.
+- author: The author if mentioned or well-known to you based on the title, otherwise null
+- is_series: true if the reader is referring to an entire book series rather than a single book, false otherwise
 - inferred_status: Either "reading" (currently reading / started) or "finished" (completed / done / read)
 - inferred_reactions: An array of emoji reactions that match the sentiment expressed. Pick from these emojis ONLY: 👍 👎 ❤️ 🔥 😂 😢 😱 🤔 🤯 💤 😡
   - If they loved it: ❤️ and/or 👍
@@ -27,22 +28,24 @@ For each book mentioned, extract:
   - If it was mind-blowing: 🤯
   - If they hated it: 😡 and/or 👎
   - If no sentiment is expressed, use an empty array []
+- comment: The reader's own words/opinion about the book, extracted verbatim or closely paraphrased from their input. This is distinct from reactions — it captures what they actually said. null if they didn't say anything specific about the book beyond just mentioning it.
 
 Rules:
 - Kids may misspell titles or use informal language — do your best to identify the correct book title
 - If multiple books are mentioned, return all of them
 - Default to "finished" status unless they explicitly say they're currently reading or just started
-- Keep author as null if not mentioned — do not guess the author
 - Return ONLY a valid JSON array, no other text
 
 Example input: "I just finished Harry Potter and it was so amazing! Also started reading Diary of a Wimpy Kid with my brother, it's pretty funny"
-Example output: [{"title":"Harry Potter","author":null,"inferred_status":"finished","inferred_reactions":["❤️","👍"]},{"title":"Diary of a Wimpy Kid","author":null,"inferred_status":"reading","inferred_reactions":["😂"]}]`;
+Example output: [{"title":"Harry Potter","author":"J.K. Rowling","is_series":true,"inferred_status":"finished","inferred_reactions":["❤️","👍"],"comment":"it was so amazing"},{"title":"Diary of a Wimpy Kid","author":"Jeff Kinney","is_series":true,"inferred_status":"reading","inferred_reactions":["😂"],"comment":"it's pretty funny"}]`;
 
 type ParsedBookEntry = {
   title: string;
   author: string | null;
+  is_series: boolean;
   inferred_status: string;
   inferred_reactions: string[];
+  comment: string | null;
 };
 
 const router = Router();
