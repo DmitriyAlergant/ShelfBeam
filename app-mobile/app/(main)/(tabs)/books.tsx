@@ -16,8 +16,7 @@ import { getHistory, type HistoryWithBook } from "../../../lib/api";
 import { STATUS_EMOJI } from "../../../lib/reading-status";
 
 const SOURCE_LABELS: Record<string, string> = {
-  scan: "From scan",
-  reading_log: "Logged by you",
+  scan: "Picked from scanned shelf",
 };
 
 export default function MyBooks() {
@@ -83,11 +82,13 @@ export default function MyBooks() {
                   {STATUS_EMOJI[entry.status] || ""} {entry.status}
                 </Text>
               </View>
-              <View style={styles.sourceBadge}>
-                <Text style={styles.sourceText}>
-                  {SOURCE_LABELS[entry.source] || entry.source}
-                </Text>
-              </View>
+              {SOURCE_LABELS[entry.source] && (
+                <View style={styles.sourceBadge}>
+                  <Text style={styles.sourceText}>
+                    {SOURCE_LABELS[entry.source]}
+                  </Text>
+                </View>
+              )}
               {entry.reactions && entry.reactions.length > 0 && (
                 <Text style={styles.reactions}>
                   {entry.reactions.join(" ")}

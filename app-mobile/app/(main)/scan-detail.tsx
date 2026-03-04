@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   ScrollView,
   StyleSheet,
@@ -50,8 +51,10 @@ export default function ScanDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
-  const [takenBookIds, setTakenBookIds] = useState<Set<string>>(new Set());
+  const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
   const [imageExpanded, setImageExpanded] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchScan = useCallback(async () => {
@@ -104,34 +107,70 @@ export default function ScanDetailScreen() {
     setSavingComment(false);
   }, [id, comment, getToken]);
 
+  const showToast = useCallback(
+    (message: string) => {
+      setToastMessage(message);
+      toastOpacity.setValue(0);
+      Animated.sequence([
+        Animated.timing(toastOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1500),
+        Animated.timing(toastOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setToastMessage(null));
+    },
+    [toastOpacity]
+  );
+
+  const bookKey = (b: DetectedBook) => `${b.title}::${b.author ?? ""}`;
+
   const takeBook = useCallback(
     async (detectedBook: DetectedBook) => {
       if (!activeProfile) return;
-      const token = await getToken();
-      if (!token) return;
+      const key = bookKey(detectedBook);
 
-      // Create or find the book first
-      const book = await createBook(token, {
-        title: detectedBook.title,
-        author: detectedBook.author,
-        isbn: detectedBook.isbn,
-        cover_url: detectedBook.cover_url,
-      });
+      // Optimistic update
+      setTakenBookKeys((prev) => new Set([...prev, key]));
 
-      // Add to history
-      await addToHistory(token, activeProfile.id, {
-        book_id: book.id,
-        source: "scan",
-        source_id: id,
-        status: "reading",
-      });
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("No token");
 
-      setTakenBookIds((prev) => new Set([...prev, book.id]));
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const book = await createBook(token, {
+          title: detectedBook.title,
+          author: detectedBook.author,
+          isbn: detectedBook.isbn,
+          cover_url: detectedBook.cover_url,
+        });
+
+        await addToHistory(token, activeProfile.id, {
+          book_id: book.id,
+          source: "scan",
+          source_id: id,
+          status: "reading",
+        });
+
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        showToast(`"${detectedBook.title}" added to your reading list!`);
+      } catch {
+        // Revert optimistic update on failure
+        setTakenBookKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        showToast("Failed to add book. Try again.");
       }
     },
-    [activeProfile, getToken, id]
+    [activeProfile, getToken, id, showToast]
   );
 
   const rerunRecommendation = useCallback(async () => {
@@ -160,8 +199,9 @@ export default function ScanDetailScreen() {
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
+    <View style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={styles.scrollView}
       contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
     >
       {/* Back button */}
@@ -278,7 +318,7 @@ export default function ScanDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Books Found</Text>
           {detectedBooks.map((book, idx) => {
-            const isTaken = book.book_id ? takenBookIds.has(book.book_id) : false;
+            const isTaken = takenBookKeys.has(bookKey(book));
             return (
               <View
                 key={`${book.title}-${idx}`}
@@ -348,7 +388,16 @@ export default function ScanDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+
     </ScrollView>
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity, bottom: insets.bottom + 20 }]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -356,6 +405,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgCream,
+  },
+  scrollView: {
+    flex: 1,
   },
   center: {
     flex: 1,
@@ -629,5 +681,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.headingMedium,
     color: colors.inkDark,
+  },
+
+  // Toast
+  toast: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.shelfBrown,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    ...shadows.card,
+  },
+  toastText: {
+    fontSize: 14,
+    fontFamily: fonts.headingMedium,
+    color: "#fff",
+    textAlign: "center",
   },
 });
