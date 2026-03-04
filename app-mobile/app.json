@@ -29,12 +29,13 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/bookbeam"
+      "url": "https://u.expo.dev/9a5d8996-23eb-4a68-9a8f-6a78ce075849"
     },
     "extra": {
       "eas": {
-        "projectId": "bookbeam"
-      }
+        "projectId": "9a5d8996-23eb-4a68-9a8f-6a78ce075849"
+      },
+      "router": {}
     },
     "plugins": [
       "expo-router",
@@ -43,6 +44,7 @@
       "expo-web-browser",
       "expo-font",
       "expo-updates"
-    ]
+    ],
+    "owner": "dmitriy.alergant"
   }
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "reader_profile" ADD COLUMN "notes" text;
