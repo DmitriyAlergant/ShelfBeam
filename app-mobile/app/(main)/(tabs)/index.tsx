@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getScans, getImageUrl, type ScanData } from "../../../lib/api";
@@ -45,7 +45,7 @@ function countBooks(scan: ScanData): number {
 
 export default function ScanHome() {
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
   const [scans, setScans] = useState<ScanData[]>([]);
   const [loading, setLoading] = useState(true);

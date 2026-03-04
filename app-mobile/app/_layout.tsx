@@ -1,6 +1,3 @@
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
@@ -18,39 +15,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActivityIndicator, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { AppProvider } from "../lib/AppContext";
+import { AuthProvider, useAppAuth } from "../lib/auth";
 import { colors } from "../lib/theme";
 
-const CLERK_PUBLISHABLE_KEY = (() => {
-  const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if (!key) {
-    throw new Error(
-      "Missing required env EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"
-    );
-  }
-  return key;
-})();
-
-const tokenCache =
-  Platform.OS === "web"
-    ? {
-        async getToken(key: string) {
-          return localStorage.getItem(key);
-        },
-        async saveToken(key: string, value: string) {
-          localStorage.setItem(key, value);
-        },
-      }
-    : {
-        async getToken(key: string) {
-          return SecureStore.getItemAsync(key);
-        },
-        async saveToken(key: string, value: string) {
-          return SecureStore.setItemAsync(key, value);
-        },
-      };
-
 function AuthGate() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAppAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -97,14 +66,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      <ClerkProvider
-        publishableKey={CLERK_PUBLISHABLE_KEY}
-        tokenCache={tokenCache}
-      >
+      <AuthProvider>
         <AppProvider>
           <AuthGate />
         </AppProvider>
-      </ClerkProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -10,7 +10,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -23,7 +23,7 @@ type CameraViewRef = {
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
   const cameraRef = useRef<CameraViewRef>(null);
 

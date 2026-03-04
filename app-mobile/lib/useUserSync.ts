@@ -1,11 +1,11 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useRef } from "react";
 import { useAppContext } from "./AppContext";
+import { useAppAuth } from "./auth";
 import { syncUser } from "./api";
 
 /** On first sign-in, sync the Clerk user to the backend and store appUserId. */
 export function useUserSync() {
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken } = useAppAuth();
   const { appUserId, setAppUserId } = useAppContext();
   const syncing = useRef(false);
 

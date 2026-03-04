@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { updateProfile } from "../../../lib/api";
@@ -57,7 +57,7 @@ const INTEREST_SUGGESTIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { activeProfile, setActiveProfile } = useAppContext();
 
   const [name, setName] = useState("");

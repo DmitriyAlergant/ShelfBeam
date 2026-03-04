@@ -1,5 +1,5 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import { useAppAuth } from "../../lib/auth";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,7 +22,7 @@ import { AvatarPicker } from "../../components/AvatarPicker";
 export default function ProfilePickerScreen() {
   useUserSync();
 
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { appUserId, setActiveProfile } = useAppContext();
   const router = useRouter();
 
@@ -117,7 +117,7 @@ function AddProfileModal({
   onClose: () => void;
   onCreated: (profile: ProfileData) => void;
 }) {
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [name, setName] = useState("");
   const [avatarSeed, setAvatarSeed] = useState(
     () => Math.random().toString(36).substring(2, 10)

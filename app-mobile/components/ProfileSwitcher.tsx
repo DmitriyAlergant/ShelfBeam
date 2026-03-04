@@ -1,5 +1,5 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import { useAppAuth } from "../lib/auth";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +19,7 @@ import { DiceBearAvatar } from "./DiceBearAvatar";
 export function ProfileSwitcher() {
   const insets = useSafeAreaInsets();
   const { activeProfile, setActiveProfile } = useAppContext();
-  const { signOut, getToken } = useAuth();
+  const { signOut, getToken } = useAppAuth();
   const router = useRouter();
 
   const [showSheet, setShowSheet] = useState(false);

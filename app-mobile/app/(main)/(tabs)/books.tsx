@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getHistory, type HistoryWithBook } from "../../../lib/api";
@@ -21,7 +21,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function MyBooks() {
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
   const [reading, setReading] = useState<HistoryWithBook[]>([]);
   const [finished, setFinished] = useState<HistoryWithBook[]>([]);

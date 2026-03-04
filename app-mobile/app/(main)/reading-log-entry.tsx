@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { parseReadingLog } from "../../lib/api";
@@ -18,7 +18,7 @@ import { parseReadingLog } from "../../lib/api";
 export default function ReadingLogEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 

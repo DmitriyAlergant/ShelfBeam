@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
@@ -42,7 +42,7 @@ export default function ScanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getToken } = useAuth();
+  const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
 
   const [scan, setScan] = useState<ScanData | null>(null);

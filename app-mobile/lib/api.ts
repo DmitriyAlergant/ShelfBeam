@@ -6,6 +6,22 @@ const API_BASE_URL = (() => {
   return url;
 })();
 
+const DEV_AUTH_BYPASS = process.env.EXPO_PUBLIC_DEV_AUTH_BYPASS === "true";
+
+const DEV_ADMIN_API_KEY = (() => {
+  if (!DEV_AUTH_BYPASS) return "";
+  const key = process.env.EXPO_PUBLIC_DEV_ADMIN_API_KEY;
+  if (!key) throw new Error("Missing required env EXPO_PUBLIC_DEV_ADMIN_API_KEY");
+  return key;
+})();
+
+const DEV_TEST_USER_ID = (() => {
+  if (!DEV_AUTH_BYPASS) return "";
+  const id = process.env.EXPO_PUBLIC_DEV_TEST_USER_ID;
+  if (!id) throw new Error("Missing required env EXPO_PUBLIC_DEV_TEST_USER_ID");
+  return id;
+})();
+
 type FetchOptions = {
   method?: string;
   body?: unknown;
@@ -19,7 +35,10 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     "Content-Type": "application/json",
     ...extraHeaders,
   };
-  if (token) {
+  if (DEV_AUTH_BYPASS) {
+    headers["X-Admin-Key"] = DEV_ADMIN_API_KEY;
+    headers["X-Admin-User-Id"] = DEV_TEST_USER_ID;
+  } else if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -38,11 +57,17 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
 }
 
 async function apiUpload<T>(path: string, formData: FormData, token: string): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (DEV_AUTH_BYPASS) {
+    headers["X-Admin-Key"] = DEV_ADMIN_API_KEY;
+    headers["X-Admin-User-Id"] = DEV_TEST_USER_ID;
+  } else if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: formData,
   });
 
