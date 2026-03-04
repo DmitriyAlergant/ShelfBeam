@@ -69,6 +69,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+!app-mobile/.env
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -154,7 +155,10 @@ dist/
 *.orig.*
 
 # Drizzle
-app-backend/drizzle/meta/
+# app-backend/drizzle/meta/ — must be committed for migrations to work
 
 # Docker
 pgdata/
+
+# ralphex progress logs
+.ralphex/progress/

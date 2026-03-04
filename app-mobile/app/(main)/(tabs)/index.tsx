@@ -1,61 +1,256 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useAppAuth } from "../../../lib/auth";
+import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
+import { useAppContext } from "../../../lib/AppContext";
+import { getScans, getImageUrl, type ScanData } from "../../../lib/api";
+
+const STATUS_LABELS: Record<string, string> = {
+  detecting: "Finding books...",
+  reading: "Reading spines...",
+  looking_up: "Learning...",
+  recommending: "Picking favorites...",
+  done: "Done",
+  error: "Error",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  detecting: colors.beamYellow,
+  reading: colors.beamYellow,
+  looking_up: colors.pageTeal,
+  recommending: colors.pageTeal,
+  done: colors.pageTeal,
+  error: colors.spineCoral,
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function countBooks(scan: ScanData): number {
+  if (!scan.detectedBooks || !Array.isArray(scan.detectedBooks)) return 0;
+  return scan.detectedBooks.length;
+}
 
 export default function ScanHome() {
+  const router = useRouter();
+  const { getToken } = useAppAuth();
+  const { activeProfile } = useAppContext();
+  const [scans, setScans] = useState<ScanData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchScans = useCallback(async () => {
+    if (!activeProfile) return;
+    const token = await getToken();
+    if (!token) return;
+    const data = await getScans(token, activeProfile.id);
+    setScans(data);
+  }, [activeProfile, getToken]);
+
+  useEffect(() => {
+    fetchScans().finally(() => setLoading(false));
+  }, [fetchScans]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchScans();
+    setRefreshing(false);
+  }, [fetchScans]);
+
+  const renderScanCard = useCallback(
+    ({ item }: { item: ScanData }) => {
+      const status = item.processingStatus || "detecting";
+      const bookCount = countBooks(item);
+
+      return (
+        <TouchableOpacity
+          style={styles.scanCard}
+          activeOpacity={0.8}
+          onPress={() => router.push(`/(main)/scan-detail?id=${item.id}`)}
+        >
+          {item.imageUrl && (
+            <Image
+              source={{ uri: getImageUrl(item.imageUrl) }}
+              style={styles.scanThumb}
+              resizeMode="cover"
+            />
+          )}
+          <View style={styles.scanInfo}>
+            <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
+            {item.readerComment ? (
+              <Text style={styles.scanComment} numberOfLines={1}>
+                {item.readerComment}
+              </Text>
+            ) : null}
+            <View style={styles.scanMeta}>
+              <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] || colors.inkLight }]}>
+                <Text style={styles.statusText}>{STATUS_LABELS[status] || status}</Text>
+              </View>
+              {bookCount > 0 && (
+                <Text style={styles.bookCount}>
+                  {bookCount} book{bookCount !== 1 ? "s" : ""}
+                </Text>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [router]
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.beamYellow} />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.header}>Scan a Shelf</Text>
 
-      <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.ctaButton}
+        activeOpacity={0.85}
+        onPress={() => router.push("/(main)/camera")}
+      >
         <Text style={styles.ctaEmoji}>📷</Text>
         <Text style={styles.ctaText}>Scan a Bookshelf</Text>
       </TouchableOpacity>
 
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyEmoji}>📖</Text>
-        <Text style={styles.emptyTitle}>No scans yet</Text>
-        <Text style={styles.emptySubtitle}>
-          Take a photo of a bookshelf to discover great reads!
-        </Text>
-      </View>
-    </SafeAreaView>
+      {scans.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📖</Text>
+          <Text style={styles.emptyTitle}>No scans yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Take a photo of a bookshelf to discover great reads!
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={scans}
+          keyExtractor={(item) => item.id}
+          renderItem={renderScanCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.beamYellow}
+            />
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
-    paddingHorizontal: 24,
+    backgroundColor: colors.bgCream,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  centerContainer: {
+    flex: 1,
+    backgroundColor: colors.bgCream,
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     fontSize: 28,
-    fontWeight: "800",
-    color: "#2D2D2D",
-    marginTop: 16,
-    marginBottom: 24,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.lg,
   },
   ctaButton: {
-    backgroundColor: "#6C63FF",
-    borderRadius: 16,
-    paddingVertical: 24,
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
-    shadowColor: "#6C63FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    gap: spacing.md,
+    ...shadows.button,
+    marginBottom: spacing.lg,
   },
   ctaEmoji: {
     fontSize: 28,
   },
   ctaText: {
-    color: "#FFFFFF",
+    color: colors.inkDark,
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.heading,
+  },
+  listContent: {
+    paddingBottom: spacing.xxl,
+  },
+  scanCard: {
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.lg,
+    flexDirection: "row",
+    overflow: "hidden",
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  scanThumb: {
+    width: 80,
+    height: 80,
+  },
+  scanInfo: {
+    flex: 1,
+    padding: spacing.md,
+    justifyContent: "center",
+  },
+  scanDate: {
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMedium,
+    marginBottom: spacing.xs,
+  },
+  scanComment: {
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
+    marginBottom: spacing.xs,
+  },
+  scanMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  statusText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.inkDark,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  bookCount: {
+    fontSize: 13,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
   },
   emptyState: {
     flex: 1,
@@ -65,17 +260,18 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: {
     fontSize: 56,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "700",
-    color: "#2D2D2D",
-    marginBottom: 8,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: "#8E8E93",
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
     textAlign: "center",
     paddingHorizontal: 40,
     lineHeight: 22,

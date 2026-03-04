@@ -4,69 +4,46 @@ An app helping kids choose books to read from a library bookshelf. Snap a pic of
 
 **Hackathon project — 2 days. Move fast, look great.**
 
-## How It Works
-
-1. Parent creates an account (Clerk auth), adds reader profiles for their kids
-2. Kid (or parent) snaps a photo of a library bookshelf
-3. AI pipeline: object detection → OCR → metadata lookup → personalized LLM recommendations
-4. Kid picks books → tracks reading history with emoji reactions
-5. Future scans get better recommendations based on history
-
-## Tech Stack
-
-| Component | Tech |
-|-----------|------|
-| Mobile App | Expo Go + React Native |
-| Backend (BFF) | Express + Drizzle ORM |
-| Auth | Clerk |
-| Database | Postgres |
-| Processing Pipeline | Python workers |
-| LLM | API endpoint (provided) |
-
-## Local Development
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 20+
 - Docker & Docker Compose
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (Xcode) and/or Android Emulator
-- ngrok (for real-device testing)
+- iOS Simulator (Xcode) and/or Expo Go on a physical device
 
-### Running Locally
+## Running Locally
 
 ```bash
-# 1. Start backend services
-cp .env.example .env   # fill in required values
+# 1. Configure environment
+cp .env.example .env   
+
+# 2. Fill in Clerk keys and LLM endpoint
+
+# 3. Start backend services (Postgres + Express API)
 docker compose up
 
-# 2. Start Expo (separate terminal, on host Mac — not in Docker)
-cd mobile
-npx expo start
+# 4. Start Expo (separate terminal, on host Mac — not in Docker)
+./expo.sh
 ```
-
 - Press `i` for iOS Simulator, `a` for Android Emulator
 - Scan QR with Expo Go app on a real device
 
-### Real Device Testing
+### Physical Device
 
-```bash
-# Expo tunnel (exposes dev server to real devices)
-npx expo start --tunnel
+When running on a physical device via Expo Go, `localhost` won't reach your Mac. Update `.env`:
 
-# BFF tunnel (separate terminal)
-ngrok http 3000
+```
+EXPO_PUBLIC_API_URL=http://<your-mac-local-ip>:3000
 ```
 
-Set the ngrok BFF URL in your `.env` / app config so the mobile app can reach the API from a real device.
+Then restart Expo (`npx expo start --clear`) so it picks up the new value.
 
-### Testing
+## Testing
 
 ```bash
-# BFF API tests
-cd bff && npm test
+# Backend API tests
+cd app-backend && npm test
 
-# Python pipeline tests
+# Python pipeline tests (when available)
 cd worker && pytest
 ```
 
@@ -74,15 +51,15 @@ cd worker && pytest
 
 ```
 BookBeam/
-├── mobile/          # Expo + React Native app
-├── bff/             # Express API (Backend for Frontend)
-├── worker/          # Python processing pipeline
-├── designs/         # Screen maps, data model docs
+├── app-mobile/      # Expo + React Native app
+├── app-backend/     # Express API + Drizzle ORM
+├── designs/         # Screen maps, data model, design guidelines
 ├── docker-compose.yml
 └── .env.example
 ```
 
 ## Design Docs
 
-- [Screen Map](./designs/screen-map.md) — all 11 screens
-- [Data Model](./designs/data-model.md) — Postgres schema
+- [Screen Map](./designs/screen-map.md)
+- [Data Model](./designs/data-model.md)
+- [Design Guidelines](./designs/design-guidelines.md)

@@ -1,6 +1,6 @@
-import { useSignIn } from "@clerk/clerk-expo";
+import { useSignIn, useSSO } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,32 +12,90 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { startSSOFlow } = useSSO();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      void WebBrowser.warmUpAsync();
+      return () => {
+        void WebBrowser.coolDownAsync();
+      };
+    }
+  }, []);
+
+  const onSSOPress = useCallback(
+    async (strategy: "oauth_google" | "oauth_apple") => {
+      setSsoLoading(strategy);
+      setError(null);
+      try {
+        if (Platform.OS === "web") {
+          // Web: use signIn.sso() for redirect-based flow (popups get blocked)
+          if (!signIn) throw new Error("Sign in not loaded");
+          await signIn.create({ strategy, redirectUrl: "/sso-callback" });
+          const { firstFactorVerification } = signIn;
+          const redirectUrl =
+            firstFactorVerification?.externalVerificationRedirectURL;
+          if (redirectUrl) {
+            window.location.href = redirectUrl.toString();
+          }
+          return;
+        }
+        // Native: use expo-web-browser based SSO flow
+        const { createdSessionId, setActive: ssoSetActive } =
+          await startSSOFlow({ strategy });
+
+        if (createdSessionId && ssoSetActive) {
+          await ssoSetActive({ session: createdSessionId });
+          router.replace("/(main)/profile-picker");
+        }
+      } catch (err: any) {
+        const msg =
+          err?.errors?.[0]?.longMessage || err?.message || "Sign in failed";
+        setError(msg);
+      } finally {
+        setSsoLoading(null);
+      }
+    },
+    [signIn, startSSOFlow, router],
+  );
 
   const onSignIn = async () => {
     if (!isLoaded) return;
     setLoading(true);
     setError(null);
 
-    const result = await signIn.create({
-      identifier: email,
-      password,
-    });
+    try {
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
 
-    if (result.status === "complete") {
-      await setActive({ session: result.createdSessionId });
-      setLoading(false);
-      router.replace("/(main)/(tabs)");
-    } else {
-      setError("Sign in incomplete. Please try again.");
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        setLoading(false);
+        router.replace("/(main)/profile-picker");
+      } else {
+        setError(`Sign in incomplete (status: ${result.status}). Please try again.`);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.longMessage || err?.message || "Sign in failed";
+      setError(msg);
       setLoading(false);
     }
   };
@@ -63,10 +121,48 @@ export default function SignInScreen() {
             </View>
           )}
 
+          <TouchableOpacity
+            style={[styles.ssoButton, ssoLoading === "oauth_google" && styles.buttonDisabled]}
+            onPress={() => onSSOPress("oauth_google")}
+            disabled={!!ssoLoading || loading}
+          >
+            {ssoLoading === "oauth_google" ? (
+              <ActivityIndicator color={colors.inkDark} />
+            ) : (
+              <>
+                <Ionicons name="logo-google" size={20} color={colors.inkDark} />
+                <Text style={styles.ssoButtonText}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {Platform.OS === "ios" && (
+            <TouchableOpacity
+              style={[styles.ssoButtonDark, ssoLoading === "oauth_apple" && styles.buttonDisabled]}
+              onPress={() => onSSOPress("oauth_apple")}
+              disabled={!!ssoLoading || loading}
+            >
+              {ssoLoading === "oauth_apple" ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="logo-apple" size={22} color="#fff" />
+                  <Text style={styles.ssoButtonTextLight}>Continue with Apple</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.inkLight}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -76,7 +172,7 @@ export default function SignInScreen() {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.inkLight}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -85,10 +181,10 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={onSignIn}
-            disabled={loading}
+            disabled={loading || !!ssoLoading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.inkDark} />
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
             )}
@@ -111,99 +207,137 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
+    backgroundColor: colors.bgCream,
   },
   inner: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 48,
+    marginBottom: spacing.xxl,
   },
   logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#6C63FF",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.beamYellow,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#6C63FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    marginBottom: spacing.md,
+    ...shadows.button,
   },
   logoEmoji: {
-    fontSize: 40,
+    fontSize: 44,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: "#2D2D2D",
+    fontSize: 40,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: "#8E8E93",
-    marginTop: 4,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    marginTop: spacing.xs,
   },
   form: {
-    gap: 16,
+    gap: spacing.md,
   },
   errorBox: {
-    backgroundColor: "#FFE5E5",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: colors.coralLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   errorText: {
-    color: "#FF6B6B",
+    color: colors.spineCoral,
     fontSize: 14,
+    fontFamily: fonts.bodyMedium,
     textAlign: "center",
   },
   input: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 14,
     fontSize: 16,
-    color: "#2D2D2D",
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
+    fontFamily: fonts.body,
+    color: colors.inkDark,
+  },
+  ssoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  ssoButtonDark: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.inkDark,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  ssoButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkDark,
+  },
+  ssoButtonTextLight: {
+    fontSize: 16,
+    fontFamily: fonts.bodyMedium,
+    color: "#fff",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.inkLight,
+    opacity: 0.4,
+  },
+  dividerText: {
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkLight,
   },
   button: {
-    backgroundColor: "#6C63FF",
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: "center",
-    shadowColor: "#6C63FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...shadows.button,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: colors.inkDark,
     fontSize: 17,
-    fontWeight: "700",
+    fontFamily: fonts.headingSemiBold,
   },
   linkRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   linkLabel: {
-    color: "#8E8E93",
+    color: colors.inkMedium,
     fontSize: 15,
+    fontFamily: fonts.body,
   },
   link: {
-    color: "#6C63FF",
+    color: colors.shelfBrown,
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.bodyBold,
   },
 });

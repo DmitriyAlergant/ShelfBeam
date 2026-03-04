@@ -27,10 +27,10 @@ Host Mac (not Docker):
 
 | Layer | Tool | Notes |
 |-------|------|-------|
-| app-backend API | vitest + supertest (or curl) | All endpoints, scan workflow, book CRUD |
+| app-backend API | manual curl calls | All endpoints, scan workflow, book CRUD |
 | Python pipeline | pytest | Workers in isolation |
-| React Native UI | iOS Simulator + Expo Go on device | Manual testing; Maestro if time permits |
-| Agentic validation | Claude Code + curl/API calls | Per "test whenever possible" rule |
+| React Native Web Agentic Testing | /dev-browser skill or playwright-cli | When explicitly called for by the implementation plan |
+| React Native UI Manual Testing | iOS Simulator + Expo Go on device | Manual testing |
 
 Screen Designs: `./designs/screen-map.md`
 Data Model: `./designs/data-model.md`
@@ -61,5 +61,9 @@ NO DATABASE CONSTRAINTS
 COMMIT OFTEN once validated that the feature is running:
 
 WHEN WORKING ON A PLAN assume the implementation agent is just as smart as you, most often IT IS a copy of yourself. Keep plans higher level for structure and review. DO NOT CODE INSIDE THE PLAN.
+
+ADMIN API AUTH BYPASS: The backend supports full Clerk auth bypass via two headers: `X-Admin-Key: <ADMIN_API_KEY>` and `X-Admin-User-Id: <clerk_user_id>`. Use this for curl testing, worker-to-API calls, and agentic validation instead of minting Clerk tokens. The middleware (`app-backend/src/middleware/admin-auth.ts`) runs before clerkMiddleware and overrides `req.auth` so all downstream `getAuth()`/`requireAuth()` work normally. `TEST_USER_ID` env var holds the primary dev user's Clerk ID — use it as the `X-Admin-User-Id` value. Example: `curl -H "X-Admin-Key: $ADMIN_API_KEY" -H "X-Admin-User-Id: $TEST_USER_ID" http://localhost:3000/api/profiles`.
+
+FRONTEND DEV AUTH BYPASS FOR AGENTIC TESTING (playwright/dev-browser): Set `EXPO_PUBLIC_DEV_AUTH_BYPASS=true` in `.env` (along with `EXPO_PUBLIC_DEV_ADMIN_API_KEY` and `EXPO_PUBLIC_DEV_TEST_USER_ID`). When enabled, ClerkProvider is replaced with a mock auth context, uses `X-Admin-User-Id` admin header based on $EXPO_PUBLIC_DEV_TEST_USER_ID. The app loads directly to profile-picker skipping sign-in.  react-native-web served via `http://localhost:8081`.
 
 HOT RELOAD: all docker compose apps need to mount source code from the monorepo for hot reload (via docker compose, not via app-level Dockerfile). If we ever deploy to production into e.g. railway, that will not be using this docker compose yaml.

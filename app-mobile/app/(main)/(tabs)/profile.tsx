@@ -1,164 +1,542 @@
-import { useAuth } from "@clerk/clerk-expo";
-import { useContext } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ActiveReaderContext } from "../_layout";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAppAuth } from "../../../lib/auth";
+import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
+import { useAppContext } from "../../../lib/AppContext";
+import { updateProfile } from "../../../lib/api";
+import { DiceBearAvatar } from "../../../components/DiceBearAvatar";
+import { AvatarPicker } from "../../../components/AvatarPicker";
+
+const GENDER_OPTIONS = [
+  { key: "M", label: "Boy" },
+  { key: "F", label: "Girl" },
+  { key: "", label: "Skip" },
+];
+
+const LANGUAGE_OPTIONS = [
+  "English",
+  "Spanish",
+  "French",
+  "Mandarin",
+  "Russian",
+  "Arabic",
+  "Hindi",
+  "Portuguese",
+  "Japanese",
+  "Korean",
+];
+
+const INTEREST_SUGGESTIONS = [
+  "Dinosaurs",
+  "Space",
+  "Magic",
+  "Animals",
+  "Sports",
+  "Science",
+  "Art",
+  "Music",
+  "Adventure",
+  "Mystery",
+  "Funny",
+  "Robots",
+  "Pirates",
+  "Princesses",
+  "Superheroes",
+  "History",
+];
 
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
-  const { activeReader, setActiveReader } = useContext(ActiveReaderContext);
+  const { getToken } = useAppAuth();
+  const { activeProfile, setActiveProfile } = useAppContext();
+
+  const [name, setName] = useState("");
+  const [avatarKey, setAvatarKey] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [gender, setGender] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [newInterest, setNewInterest] = useState("");
+
+  // Initialize from active profile
+  useEffect(() => {
+    if (!activeProfile) return;
+    setName(activeProfile.name || "");
+    setAvatarKey(activeProfile.avatarKey || activeProfile.name);
+    setBirthYear(activeProfile.birthYear ? String(activeProfile.birthYear) : "");
+    setGender(activeProfile.gender || "");
+    setLanguages(activeProfile.languages || []);
+    setInterests(activeProfile.interests || []);
+    setNotes(activeProfile.notes || "");
+  }, [activeProfile]);
+
+  const save = useCallback(
+    async (
+      updates: Record<string, unknown>
+    ) => {
+      if (!activeProfile) return;
+      const token = await getToken();
+      if (!token) return;
+      setSaving(true);
+      const updated = await updateProfile(token, activeProfile.id, updates as Parameters<typeof updateProfile>[2]);
+      setActiveProfile(updated);
+      setSaving(false);
+    },
+    [activeProfile, getToken, setActiveProfile]
+  );
+
+  const handleNameBlur = useCallback(() => {
+    if (name.trim() && name.trim() !== activeProfile?.name) {
+      save({ name: name.trim() });
+    }
+  }, [name, activeProfile, save]);
+
+  const handleAvatarSelect = useCallback(
+    (seed: string) => {
+      setAvatarKey(seed);
+      setShowAvatarPicker(false);
+      save({ avatar_key: seed });
+    },
+    [save]
+  );
+
+  const handleBirthYearBlur = useCallback(() => {
+    const yr = parseInt(birthYear, 10);
+    if (yr && yr >= 2000 && yr <= 2025) {
+      save({ birth_year: yr });
+    }
+  }, [birthYear, save]);
+
+  const handleGenderSelect = useCallback(
+    (g: string) => {
+      setGender(g);
+      save({ gender: g || null });
+    },
+    [save]
+  );
+
+  const toggleLanguage = useCallback(
+    (lang: string) => {
+      const newLangs = languages.includes(lang)
+        ? languages.filter((l) => l !== lang)
+        : [...languages, lang];
+      setLanguages(newLangs);
+      save({ languages: newLangs });
+    },
+    [languages, save]
+  );
+
+  const toggleInterest = useCallback(
+    (interest: string) => {
+      const newInterests = interests.includes(interest)
+        ? interests.filter((i) => i !== interest)
+        : [...interests, interest];
+      setInterests(newInterests);
+      save({ interests: newInterests });
+    },
+    [interests, save]
+  );
+
+  const addCustomInterest = useCallback(() => {
+    const trimmed = newInterest.trim();
+    if (!trimmed || interests.includes(trimmed)) {
+      setNewInterest("");
+      return;
+    }
+    const newInterests = [...interests, trimmed];
+    setInterests(newInterests);
+    setNewInterest("");
+    save({ interests: newInterests });
+  }, [newInterest, interests, save]);
+
+  const handleNotesBlur = useCallback(() => {
+    save({ notes: notes.trim() });
+  }, [notes, save]);
+
+  if (!activeProfile) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Reader Profile</Text>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>Reader Profile</Text>
+          {saving && (
+            <ActivityIndicator size="small" color={colors.beamYellow} />
+          )}
+        </View>
 
-      {activeReader && (
-        <View style={styles.profileCard}>
-          <View
-            style={[styles.avatar, { backgroundColor: activeReader.color }]}
+        {/* Avatar section */}
+        <View style={styles.avatarSection}>
+          <TouchableOpacity
+            onPress={() => setShowAvatarPicker(!showAvatarPicker)}
           >
-            <Text style={styles.avatarLetter}>
-              {activeReader.name.charAt(0)}
-            </Text>
-          </View>
-          <Text style={styles.name}>{activeReader.name}</Text>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Interests</Text>
-            <View style={styles.chips}>
-              {["Dinosaurs", "Space", "Magic"].map((tag) => (
-                <View key={tag} style={styles.chip}>
-                  <Text style={styles.chipText}>{tag}</Text>
-                </View>
-              ))}
+            <DiceBearAvatar seed={avatarKey} size={96} active />
+            <View style={styles.avatarEditBadge}>
+              <Text style={styles.avatarEditText}>✏️</Text>
             </View>
-          </View>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Reading Level</Text>
-            <Text style={styles.sectionValue}>Ages 8-10</Text>
+        {showAvatarPicker && (
+          <View style={styles.pickerContainer}>
+            <AvatarPicker
+              value={avatarKey}
+              onSelect={handleAvatarSelect}
+              avatarSize={56}
+              gender={gender}
+            />
+          </View>
+        )}
+
+        {/* Name */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+            style={styles.textInput}
+            value={name}
+            onChangeText={setName}
+            onBlur={handleNameBlur}
+            placeholder="Reader's name"
+            placeholderTextColor={colors.inkLight}
+            returnKeyType="done"
+          />
+        </View>
+
+        {/* Birth Year */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Birth Year</Text>
+          <TextInput
+            style={styles.textInput}
+            value={birthYear}
+            onChangeText={setBirthYear}
+            onBlur={handleBirthYearBlur}
+            placeholder="e.g. 2016"
+            placeholderTextColor={colors.inkLight}
+            keyboardType="number-pad"
+            maxLength={4}
+            returnKeyType="done"
+          />
+        </View>
+
+        {/* Gender */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.chipRow}>
+            {GENDER_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[
+                  styles.selectChip,
+                  gender === opt.key && styles.selectChipActive,
+                ]}
+                onPress={() => handleGenderSelect(opt.key)}
+              >
+                <Text
+                  style={[
+                    styles.selectChipText,
+                    gender === opt.key && styles.selectChipTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-      )}
 
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.switchButton}
-          onPress={() => setActiveReader(null)}
-        >
-          <Text style={styles.switchButtonText}>Switch Reader</Text>
-        </TouchableOpacity>
+        {/* Languages */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Languages</Text>
+          <View style={styles.chipRow}>
+            {LANGUAGE_OPTIONS.map((lang) => {
+              const isSelected = languages.includes(lang);
+              return (
+                <TouchableOpacity
+                  key={lang}
+                  style={[
+                    styles.multiChip,
+                    isSelected && styles.multiChipActive,
+                  ]}
+                  onPress={() => toggleLanguage(lang)}
+                >
+                  <Text
+                    style={[
+                      styles.multiChipText,
+                      isSelected && styles.multiChipTextActive,
+                    ]}
+                  >
+                    {lang}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={() => signOut()}
-        >
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+        {/* Interests */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Interests</Text>
+          <View style={styles.chipRow}>
+            {INTEREST_SUGGESTIONS.map((interest) => {
+              const isSelected = interests.includes(interest);
+              return (
+                <TouchableOpacity
+                  key={interest}
+                  style={[
+                    styles.interestChip,
+                    isSelected && styles.interestChipActive,
+                  ]}
+                  onPress={() => toggleInterest(interest)}
+                >
+                  <Text
+                    style={[
+                      styles.interestChipText,
+                      isSelected && styles.interestChipTextActive,
+                    ]}
+                  >
+                    {interest}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            {interests
+              .filter((i) => !INTEREST_SUGGESTIONS.includes(i))
+              .map((custom) => (
+                <TouchableOpacity
+                  key={custom}
+                  style={[styles.interestChip, styles.interestChipActive]}
+                  onPress={() => toggleInterest(custom)}
+                >
+                  <Text
+                    style={[
+                      styles.interestChipText,
+                      styles.interestChipTextActive,
+                    ]}
+                  >
+                    {custom} ✕
+                  </Text>
+                </TouchableOpacity>
+              ))}
+          </View>
+          <View style={styles.addInterestRow}>
+            <TextInput
+              style={styles.addInterestInput}
+              value={newInterest}
+              onChangeText={setNewInterest}
+              placeholder="Add your own..."
+              placeholderTextColor={colors.inkLight}
+              onSubmitEditing={addCustomInterest}
+              returnKeyType="done"
+            />
+            {newInterest.trim() !== "" && (
+              <TouchableOpacity
+                style={styles.addInterestButton}
+                onPress={addCustomInterest}
+              >
+                <Text style={styles.addInterestButtonText}>Add</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Notes */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Notes</Text>
+          <TextInput
+            style={[styles.textInput, styles.notesInput]}
+            value={notes}
+            onChangeText={setNotes}
+            onBlur={handleNotesBlur}
+            placeholder="Anything else we should know about this reader..."
+            placeholderTextColor={colors.inkLight}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+    backgroundColor: colors.bgCream,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
-    paddingHorizontal: 24,
+    backgroundColor: colors.bgCream,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl * 2,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.lg,
   },
   header: {
     fontSize: 28,
-    fontWeight: "800",
-    color: "#2D2D2D",
-    marginTop: 16,
-    marginBottom: 24,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
   },
-  profileCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 24,
+  avatarSection: {
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    marginBottom: spacing.lg,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: -4,
+    backgroundColor: colors.bgWarm,
+    borderRadius: 14,
+    width: 28,
+    height: 28,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    ...shadows.card,
   },
-  avatarLetter: {
-    fontSize: 36,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#2D2D2D",
-    marginBottom: 20,
-  },
-  section: {
-    width: "100%",
-    marginTop: 16,
-  },
-  sectionTitle: {
+  avatarEditText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#8E8E93",
+  },
+  pickerContainer: {
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  field: {
+    marginBottom: spacing.lg,
+  },
+  label: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.inkMedium,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  sectionValue: {
+  textInput: {
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    padding: spacing.md,
     fontSize: 16,
-    color: "#2D2D2D",
+    fontFamily: fonts.body,
+    color: colors.inkDark,
   },
-  chips: {
+  notesInput: {
+    minHeight: 100,
+    lineHeight: 22,
+  },
+  chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
-  chip: {
-    backgroundColor: "#F0EFFF",
+  selectChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgWarm,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  selectChipActive: {
+    borderColor: colors.beamYellow,
+    backgroundColor: colors.beamYellowLight,
+  },
+  selectChipText: {
+    fontSize: 14,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMedium,
+  },
+  selectChipTextActive: {
+    color: colors.inkDark,
+  },
+  multiChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 20,
+    backgroundColor: colors.bgWarm,
+  },
+  multiChipActive: {
+    backgroundColor: colors.pageTeal,
+  },
+  multiChipText: {
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMedium,
+  },
+  multiChipTextActive: {
+    color: "#fff",
+  },
+  interestChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.bgWarm,
   },
-  chipText: {
-    color: "#6C63FF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  actions: {
-    marginTop: 24,
-    gap: 12,
-  },
-  switchButton: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
+  interestChipActive: {
+    backgroundColor: colors.beamYellowLight,
     borderWidth: 1,
-    borderColor: "#6C63FF",
+    borderColor: colors.beamYellow,
   },
-  switchButtonText: {
-    color: "#6C63FF",
-    fontSize: 16,
-    fontWeight: "600",
+  interestChipText: {
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMedium,
   },
-  signOutButton: {
-    paddingVertical: 14,
-    alignItems: "center",
+  interestChipTextActive: {
+    color: colors.shelfBrown,
   },
-  signOutText: {
-    color: "#FF6B6B",
-    fontSize: 16,
-    fontWeight: "600",
+  addInterestRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  addInterestInput: {
+    flex: 1,
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
+  },
+  addInterestButton: {
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+  },
+  addInterestButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
   },
 });

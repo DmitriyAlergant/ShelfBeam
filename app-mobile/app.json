@@ -25,11 +25,26 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9a5d8996-23eb-4a68-9a8f-6a78ce075849"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9a5d8996-23eb-4a68-9a8f-6a78ce075849"
+      },
+      "router": {}
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-asset",
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "expo-font",
+      "expo-updates"
+    ],
+    "owner": "dmitriy.alergant"
   }
 }
