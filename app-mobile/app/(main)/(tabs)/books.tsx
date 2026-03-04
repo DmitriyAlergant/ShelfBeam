@@ -50,6 +50,7 @@ export default function MyBooks() {
   const renderBookCard = useCallback(
     ({ item }: { item: HistoryWithBook }) => {
       const { entry, book } = item;
+      if (!book) return null;
       return (
         <TouchableOpacity
           style={styles.bookCard}
