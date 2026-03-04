@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -127,7 +128,7 @@ export default function ReadingLogConfirmationScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.backText}>← Back</Text>
+          <Ionicons name="chevron-back" size={28} color={colors.shelfBrown} />
         </TouchableOpacity>
       </View>
 
@@ -277,12 +278,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   backButton: {
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    fontSize: 16,
-    fontFamily: fonts.headingMedium,
-    color: colors.shelfBrown,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
   },
   scrollView: {
     flex: 1,
@@ -301,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   entryCard: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -327,7 +325,7 @@ const styles = StyleSheet.create({
   },
   entryTitle: {
     fontSize: 17,
-    fontFamily: fonts.headingMedium,
+    fontFamily: fonts.contentHeadingMedium,
     color: colors.inkDark,
     padding: 0,
   },
@@ -351,7 +349,7 @@ const styles = StyleSheet.create({
   statusChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.bgCream,
   },
   statusChipActive: {
@@ -374,7 +372,7 @@ const styles = StyleSheet.create({
   reactionChip: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     backgroundColor: colors.bgCream,
     justifyContent: "center",
     alignItems: "center",
@@ -427,12 +425,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     backgroundColor: colors.bgCream,
-    borderTopWidth: 1,
-    borderTopColor: colors.bgWarm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   confirmButton: {
     backgroundColor: colors.beamYellow,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingVertical: spacing.md,
     alignItems: "center",
     ...shadows.button,

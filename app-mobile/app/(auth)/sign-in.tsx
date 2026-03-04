@@ -108,7 +108,7 @@ export default function SignInScreen() {
       >
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoEmoji}>📚</Text>
+            <Ionicons name="book" size={44} color={colors.inkDark} />
           </View>
           <Text style={styles.title}>BookBeam</Text>
           <Text style={styles.subtitle}>Discover your next great read</Text>
@@ -228,9 +228,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.button,
   },
-  logoEmoji: {
-    fontSize: 44,
-  },
   title: {
     fontSize: 40,
     fontFamily: fonts.heading,
@@ -258,13 +255,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   input: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
     fontSize: 16,
     fontFamily: fonts.body,
     color: colors.inkDark,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   ssoButton: {
     flexDirection: "row",

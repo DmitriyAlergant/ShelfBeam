@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { parseReadingLog } from "../../lib/api";
@@ -51,7 +52,7 @@ export default function ReadingLogEntryScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.backText}>← Back</Text>
+          <Ionicons name="chevron-back" size={28} color={colors.shelfBrown} />
         </TouchableOpacity>
       </View>
 
@@ -109,12 +110,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   backButton: {
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    fontSize: 16,
-    fontFamily: fonts.headingMedium,
-    color: colors.shelfBrown,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
   },
   content: {
     flex: 1,
@@ -135,7 +133,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     flex: 1,
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     padding: spacing.lg,
     fontSize: 16,
@@ -143,7 +141,9 @@ const styles = StyleSheet.create({
     color: colors.inkDark,
     lineHeight: 24,
     minHeight: 200,
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   hint: {
     fontSize: 13,
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: colors.beamYellow,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingVertical: spacing.md,
     alignItems: "center",
     ...shadows.button,

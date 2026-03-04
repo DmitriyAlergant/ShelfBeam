@@ -6,6 +6,7 @@
 export const colors = {
   bgCream: "#FFF8F0",
   bgWarm: "#F5EDE3",
+  bgSurface: "#F9F2EA",
   shelfBrown: "#8B6914",
   beamYellow: "#FFD234",
   pageTeal: "#2EC4B6",
@@ -14,6 +15,7 @@ export const colors = {
   inkMedium: "#7A6B5D",
   inkLight: "#B8A99A",
   shadow: "rgba(45,35,25,0.08)",
+  border: "rgba(139,105,20,0.10)",
   // Derived
   beamYellowLight: "rgba(255,210,52,0.15)",
   coralLight: "rgba(255,107,107,0.12)",
@@ -34,13 +36,17 @@ export const radius = {
   md: 12,
   lg: 16,
   xl: 24,
+  pill: 100,
 } as const;
 
 export const fonts = {
-  // Display / Headers
+  // Display / Headers (UI chrome — always English)
   heading: "Fredoka_700Bold",
   headingMedium: "Fredoka_500Medium",
   headingSemiBold: "Fredoka_600SemiBold",
+  // Content headers (book titles, user content — may be non-Latin)
+  contentHeading: "Nunito_700Bold",
+  contentHeadingMedium: "Nunito_600SemiBold",
   // Body / UI
   body: "Nunito_400Regular",
   bodyMedium: "Nunito_600SemiBold",
@@ -50,12 +56,19 @@ export const fonts = {
 } as const;
 
 export const shadows = {
+  subtle: {
+    shadowColor: colors.inkDark,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
   card: {
     shadowColor: colors.inkDark,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 3,
   },
   button: {
     shadowColor: colors.beamYellow,
@@ -66,8 +79,8 @@ export const shadows = {
   },
   tabBar: {
     shadowColor: colors.inkDark,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: -1 },
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 8,
   },

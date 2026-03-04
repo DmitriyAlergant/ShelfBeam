@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getHistory, type HistoryWithBook } from "../../../lib/api";
@@ -122,7 +123,7 @@ export default function MyBooks() {
         activeOpacity={0.85}
         onPress={() => router.push("/(main)/reading-log-entry")}
       >
-        <Text style={styles.ctaEmoji}>✏️</Text>
+        <Ionicons name="create-outline" size={22} color={colors.inkDark} />
         <Text style={styles.ctaText}>Tell us what you've read</Text>
       </TouchableOpacity>
 
@@ -180,11 +181,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: fonts.heading,
     color: colors.inkDark,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   ctaButton: {
     backgroundColor: colors.beamYellow,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingVertical: spacing.md,
     alignItems: "center",
     flexDirection: "row",
@@ -192,9 +193,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadows.button,
     marginBottom: spacing.lg,
-  },
-  ctaEmoji: {
-    fontSize: 22,
   },
   ctaText: {
     color: colors.inkDark,
@@ -212,7 +210,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   bookCard: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     flexDirection: "row",
     alignItems: "center",
@@ -237,7 +235,7 @@ const styles = StyleSheet.create({
   },
   bookTitle: {
     fontSize: 15,
-    fontFamily: fonts.headingMedium,
+    fontFamily: fonts.contentHeadingMedium,
     color: colors.inkDark,
   },
   bookAuthor: {

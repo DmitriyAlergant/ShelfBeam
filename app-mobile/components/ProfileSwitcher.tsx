@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, shadows, spacing } from "../lib/theme";
 import { useAppContext } from "../lib/AppContext";
 import { getProfiles, type ProfileData } from "../lib/api";
@@ -65,14 +66,14 @@ export function ProfileSwitcher() {
           <Text style={styles.profileName} numberOfLines={1}>
             {activeProfile.name}
           </Text>
-          <Text style={styles.chevron}>▾</Text>
+          <Ionicons name="chevron-down" size={16} color={colors.inkMedium} />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => signOut()}
           style={styles.logoutButton}
         >
-          <Text style={styles.logoutText}>Log out</Text>
+          <Ionicons name="log-out-outline" size={22} color={colors.spineCoral} />
         </TouchableOpacity>
       </View>
 
@@ -142,8 +143,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.bgWarm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   profileButton: {
     flexDirection: "row",
@@ -153,22 +154,13 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 16,
-    fontFamily: fonts.headingSemiBold,
+    fontFamily: fonts.contentHeadingMedium,
     color: colors.inkDark,
     maxWidth: 150,
-  },
-  chevron: {
-    fontSize: 14,
-    color: colors.inkMedium,
   },
   logoutButton: {
     paddingVertical: spacing.sm,
     paddingLeft: spacing.md,
-  },
-  logoutText: {
-    fontSize: 14,
-    fontFamily: fonts.bodyMedium,
-    color: colors.spineCoral,
   },
 });
 
@@ -219,7 +211,7 @@ const sheetStyles = StyleSheet.create({
   },
   itemName: {
     fontSize: 18,
-    fontFamily: fonts.headingSemiBold,
+    fontFamily: fonts.contentHeadingMedium,
     color: colors.inkDark,
   },
   switchButton: {

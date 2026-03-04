@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getScans, getImageUrl, type ScanData } from "../../../lib/api";
@@ -128,7 +129,7 @@ export default function ScanHome() {
         activeOpacity={0.85}
         onPress={() => router.push("/(main)/camera")}
       >
-        <Text style={styles.ctaEmoji}>📷</Text>
+        <Ionicons name="camera" size={28} color={colors.inkDark} />
         <Text style={styles.ctaText}>Scan a Bookshelf</Text>
       </TouchableOpacity>
 
@@ -177,11 +178,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: fonts.heading,
     color: colors.inkDark,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   ctaButton: {
     backgroundColor: colors.beamYellow,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingVertical: spacing.lg,
     alignItems: "center",
     flexDirection: "row",
@@ -189,9 +190,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadows.button,
     marginBottom: spacing.lg,
-  },
-  ctaEmoji: {
-    fontSize: 28,
   },
   ctaText: {
     color: colors.inkDark,
@@ -202,7 +200,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   scanCard: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     flexDirection: "row",
     overflow: "hidden",

@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 140,
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     paddingVertical: spacing.lg,
     alignItems: "center",
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 17,
-    fontFamily: fonts.headingSemiBold,
+    fontFamily: fonts.contentHeadingMedium,
     color: colors.inkDark,
     marginTop: spacing.md,
   },
@@ -335,13 +335,16 @@ const modalStyles = StyleSheet.create({
     textAlign: "center",
   },
   input: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
     fontSize: 18,
     fontFamily: fonts.body,
     color: colors.inkDark,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   actions: {
     flexDirection: "row",

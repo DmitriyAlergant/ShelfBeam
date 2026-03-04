@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   header: {
     fontSize: 28,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   pickerContainer: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
@@ -437,18 +437,21 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontFamily: fonts.badge,
-    color: colors.inkMedium,
+    color: colors.inkLight,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   textInput: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     padding: spacing.md,
     fontSize: 16,
     fontFamily: fonts.body,
     color: colors.inkDark,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   notesInput: {
     minHeight: 100,
@@ -462,9 +465,9 @@ const styles = StyleSheet.create({
   selectChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgWarm,
-    borderWidth: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1.5,
     borderColor: "transparent",
   },
   selectChipActive: {
@@ -482,8 +485,8 @@ const styles = StyleSheet.create({
   multiChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
-    backgroundColor: colors.bgWarm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSurface,
   },
   multiChipActive: {
     backgroundColor: colors.pageTeal,
@@ -499,12 +502,12 @@ const styles = StyleSheet.create({
   interestChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.bgWarm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSurface,
   },
   interestChipActive: {
     backgroundColor: colors.beamYellowLight,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.beamYellow,
   },
   interestChipText: {
@@ -522,13 +525,16 @@ const styles = StyleSheet.create({
   },
   addInterestInput: {
     flex: 1,
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: 14,
     fontFamily: fonts.body,
     color: colors.inkDark,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   addInterestButton: {
     backgroundColor: colors.beamYellow,

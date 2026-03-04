@@ -12,6 +12,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
 import { uploadScanImage, createScan } from "../../lib/api";
@@ -130,7 +131,7 @@ export default function CameraScreen() {
       >
         <View style={[styles.cameraOverlay, { paddingTop: insets.top + spacing.md }]}>
           <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-            <Text style={styles.closeText}>✕</Text>
+            <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -140,7 +141,7 @@ export default function CameraScreen() {
 
         <View style={[styles.cameraControls, { paddingBottom: insets.bottom + spacing.xl }]}>
           <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery}>
-            <Text style={styles.galleryEmoji}>🖼️</Text>
+            <Ionicons name="images-outline" size={24} color="#fff" />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
@@ -228,11 +229,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  closeText: {
-    color: "#fff",
-    fontSize: 20,
-    fontFamily: fonts.heading,
-  },
   cameraHint: {
     flex: 1,
     justifyContent: "center",
@@ -259,9 +255,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-  },
-  galleryEmoji: {
-    fontSize: 24,
   },
   captureButton: {
     width: 72,

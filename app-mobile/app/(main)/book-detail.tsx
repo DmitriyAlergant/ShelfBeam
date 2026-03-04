@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -168,7 +169,7 @@ export default function BookDetailScreen() {
       {/* Back button */}
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
+          <Ionicons name="chevron-back" size={28} color={colors.shelfBrown} />
         </TouchableOpacity>
       </View>
 
@@ -269,12 +270,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgCream,
   },
   backButton: {
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    fontSize: 16,
-    fontFamily: fonts.headingMedium,
-    color: colors.shelfBrown,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
   },
   coverSection: {
     alignItems: "center",
@@ -299,7 +297,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontFamily: fonts.heading,
+    fontFamily: fonts.contentHeading,
     color: colors.inkDark,
     textAlign: "center",
   },
@@ -316,10 +314,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: fonts.badge,
-    color: colors.inkMedium,
+    color: colors.inkLight,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   statusRow: {
     flexDirection: "row",
@@ -331,10 +329,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "transparent",
   },
   statusOptionActive: {
@@ -360,8 +358,8 @@ const styles = StyleSheet.create({
   reactionPill: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.bgWarm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSurface,
     justifyContent: "center",
     alignItems: "center",
   },

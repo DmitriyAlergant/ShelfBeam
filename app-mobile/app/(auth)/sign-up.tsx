@@ -113,7 +113,7 @@ export default function SignUpScreen() {
       >
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoEmoji}>📚</Text>
+            <Ionicons name="book" size={44} color="#fff" />
           </View>
           <Text style={styles.title}>BookBeam</Text>
           <Text style={styles.subtitle}>Create your account</Text>
@@ -267,9 +267,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  logoEmoji: {
-    fontSize: 44,
-  },
   title: {
     fontSize: 40,
     fontFamily: fonts.heading,
@@ -347,13 +344,16 @@ const styles = StyleSheet.create({
     color: colors.inkLight,
   },
   input: {
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
     fontSize: 16,
     fontFamily: fonts.body,
     color: colors.inkDark,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.subtle,
   },
   button: {
     backgroundColor: colors.spineCoral,
