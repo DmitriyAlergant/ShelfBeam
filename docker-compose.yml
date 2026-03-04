@@ -48,6 +48,7 @@ services:
       API_BASE_URL: http://app-backend:3000
       ADMIN_API_KEY: ${ADMIN_API_KEY}
       TEST_USER_ID: ${TEST_USER_ID}
+      PYTHONDONTWRITEBYTECODE: "1"
     volumes:
       - ./worker/src:/app/src
       - uploads:/data/uploads
