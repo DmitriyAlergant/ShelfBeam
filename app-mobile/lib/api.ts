@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 const API_BASE_URL = (() => {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
@@ -165,17 +167,23 @@ export type ScanRecommendation = {
   top_picks?: string[];
 };
 
-export function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string }> {
+export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string }> {
   const formData = new FormData();
   const filename = imageUri.split("/").pop() || "photo.jpg";
   const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
   const mimeType = ext === "png" ? "image/png" : "image/jpeg";
 
-  formData.append("image", {
-    uri: imageUri,
-    name: filename,
-    type: mimeType,
-  } as unknown as Blob);
+  if (Platform.OS === "web") {
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    formData.append("image", blob, filename);
+  } else {
+    formData.append("image", {
+      uri: imageUri,
+      name: filename,
+      type: mimeType,
+    } as unknown as Blob);
+  }
 
   return apiUpload<{ image_url: string }>("/api/scans/upload", formData, token);
 }
