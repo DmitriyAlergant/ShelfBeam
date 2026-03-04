@@ -50,7 +50,7 @@ Multiple per app_user (one parent account → many kid readers). Managed from Pr
 
 ### book
 
-Shared catalog of known books. Populated by processing pipeline (metadata lookups) and LLM parsing from story entries. Deduplicated by ISBN when available.
+Shared catalog of known books. Populated by processing pipeline (metadata lookups) and LLM parsing from reading log entries. Deduplicated by ISBN when available.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -111,14 +111,14 @@ A photo of a bookshelf submitted by a reader + workflow pipeline it brings forth
 
 ### book_history_entry
 
-A book in the reader's personal history. Source is either a scan pick or an LLM-parsed story entry.
+A book in the reader's personal history. Source is either a scan pick or an LLM-parsed reading log entry.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
 | reader_profile_id | uuid | FK → reader_profile |
 | book_id | uuid | FK → book |
-| source | text | `scan` · `story` |
+| source | text | `scan` · `reading_log` |
 | source_id | uuid | Nullable — FK → scan.id when source=scan |
 | comment | text | Nullable, freeform reader comment about the book |
 | reactions | jsonb | Array of emoji strings, e.g. `["👍","🔥","❤️"]` — toggle on/off |
@@ -134,7 +134,7 @@ Application-level dedup: one entry per book per reader (enforced in code, not DB
 
 **Scan statuses:** `uploading` → `detecting` → `reading` → `looking_up` → `recommending` → `done` | `failed`
 
-**Book history sources:** `scan` · `story`
+**Book history sources:** `scan` · `reading_log`
 
 **Book history statuses:** `reading` · `finished`
 

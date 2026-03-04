@@ -54,10 +54,10 @@ Build every backend endpoint the remaining screens need. Validate each with curl
   - `POST /api/profiles/:profileId/history` — add book to history (book_id, source, status).
   - `PATCH /api/profiles/:profileId/history/:entryId` — update reactions array or status.
   - `DELETE /api/profiles/:profileId/history/:entryId` — remove entry.
-- [ ] **Story parsing** (stub): `POST /api/story/parse` — accepts freeform text, returns mock parsed books array for now (real LLM integration deferred to Task 5). Shape: `[{title, author, inferred_status, inferred_reactions}]`.
+- [ ] **Reading log parsing** (stub): `POST /api/reading-log/parse` — accepts freeform text, returns mock parsed books array for now (real LLM integration deferred to Task 5). Shape: `[{title, author, inferred_status, inferred_reactions}]`.
 - [ ] **Profile update**: `PATCH /api/profiles/:id` — update all reader profile fields (name, avatar, birth_year, gender, languages, interests, notes).
 - [ ] **Static file serving**: serve `/data/uploads/` as static route so mobile app can display shelf images.
-- [ ] **Validate every endpoint** with curl: create scan → upload image → verify file on disk → get scan → add book → add to history → update reactions → parse story stub. Log all calls.
+- [ ] **Validate every endpoint** with curl: create scan → upload image → verify file on disk → get scan → add book → add to history → update reactions → parse reading log stub. Log all calls.
 - [ ] **Error handling review**: ensure all routes return consistent error shapes `{error: string}`, and no swallowed exceptions.
 
 ---
@@ -80,28 +80,28 @@ The hero flow of the app. User takes a photo, sees detected books, gets recommen
 
 ---
 
-## Task 5: My Books & Profile Screens — History, Story Entry & Reader Profile
+## Task 5: My Books & Profile Screens — History, Reading Log & Reader Profile
 
 Complete the remaining two tabs and all their sub-screens.
 
-- [ ] **Book History screen** (`app/(main)/(tabs)/books.tsx`): two sections — "Currently Reading" and "Finished". Each card shows cover, title, author, source tag ("From scan" / "Told us about"), emoji reaction row. "Tell us what you've read" button at top.
+- [ ] **Book History screen** (`app/(main)/(tabs)/books.tsx`): two sections — "Currently Reading" and "Finished". Each card shows cover, title, author, source tag ("From scan" / "Logged by you"), emoji reaction row. "Tell us what you've read" button at top.
 - [ ] **Book Detail modal** (`app/(main)/book-detail.tsx`): full cover image, title, author, description (from raw_metadata), emoji reaction picker (toggle grid of ~12 emojis), reading status toggle (reading ↔ finished). Changes save immediately via `PATCH /api/profiles/:id/history/:entryId`.
-- [ ] **Story Entry screen** (`app/(main)/story-entry.tsx`): large text input area with placeholder "Tell us about books you've been reading...". Microphone icon (triggers OS dictation via `textContentType`). Submit button → `POST /api/story/parse` → navigate to Story Confirmation.
-- [ ] **Story Confirmation screen** (`app/(main)/story-confirmation.tsx`): render parsed results as editable cards (title, author, status dropdown, reaction chips). "Looks good!" button → batch `POST /api/books` + `POST /api/profiles/:id/history` for each → navigate back to Book History.
+- [ ] **Reading Log Entry screen** (`app/(main)/reading-log-entry.tsx`): large text input area with placeholder "Tell us about books you've been reading...". Microphone icon (triggers OS dictation via `textContentType`). Submit button → `POST /api/reading-log/parse` → navigate to Reading Log Confirmation.
+- [ ] **Reading Log Confirmation screen** (`app/(main)/reading-log-confirmation.tsx`): render parsed results as editable cards (title, author, status dropdown, reaction chips). "Looks good!" button → batch `POST /api/books` + `POST /api/profiles/:id/history` for each → navigate back to Book History.
 - [ ] **Reader Profile screen** (`app/(main)/(tabs)/profile.tsx`): scrollable form with avatar grid picker, name input, birth year picker, gender selector, languages multi-select chips, interests tag input, freeform notes textarea. Auto-save on blur or explicit "Save" button → `PATCH /api/profiles/:id`.
-- [ ] **Validate**: add books via story entry flow end-to-end → confirm they appear in history → tap a book → see detail → toggle emoji reactions → verify PATCH calls. Edit profile fields → verify persistence.
+- [ ] **Validate**: add books via reading log entry flow end-to-end → confirm they appear in history → tap a book → see detail → toggle emoji reactions → verify PATCH calls. Edit profile fields → verify persistence.
 - [ ] **Polish**: empty states for history, keyboard-avoiding views on forms, smooth sheet animations for book detail modal, reaction emoji animations.
 
 ---
 
-## Task 6: Story Parsing via LLM
+## Task 6: Reading Log Parsing via LLM
 
-Wire up real LLM-powered story parsing so the "Tell us what you've read" flow works end-to-end.
+Wire up real LLM-powered reading log parsing so the "Tell us what you've read" flow works end-to-end.
 
 - [ ] **Design prompt**: craft a system prompt that extracts structured book data from freeform kid input — title, author (if mentioned), reading status, inferred emotional reactions. Output as JSON array.
-- [ ] **Replace stub in `POST /api/story/parse`**: call gpt-5.2 via OpenAI SDK (using `OPENAI_API_KEY`, `OPENAI_BASE_URL` from env). Retry once on malformed JSON response.
+- [ ] **Replace stub in `POST /api/reading-log/parse`**: call gpt-5.2 via OpenAI SDK (using `OPENAI_API_KEY`, `OPENAI_BASE_URL` from env). Retry once on malformed JSON response.
 - [ ] **Validate**: test with varied inputs via curl — "I read Harry Potter and it was amazing", "me and mom finished Diary of a Wimpy Kid, started Percy Jackson" — confirm parsed output is sensible.
-- [ ] **Wire to frontend**: confirm Story Entry → Story Confirmation → Book History flow works end-to-end with real parsing.
+- [ ] **Wire to frontend**: confirm Reading Log Entry → Reading Log Confirmation → Book History flow works end-to-end with real parsing.
 - [ ] **Polish**: handle LLM timeouts gracefully (return error, don't hang), tune prompt for better extraction quality.
 
 ---

@@ -77,9 +77,9 @@
   - Source tag: "From scan" or "Told us about"
   - Emoji reactions displayed as a row
 - Tap a book → Book Detail
-- "Tell us what you've read" button → Story Entry screen
+- "Tell us what you've read" button → Reading Log Entry screen
 
-### Screen 2.3 — Story Entry ("Tell us what you've read")
+### Screen 2.3 — Reading Log Entry ("Tell us what you've read")
 - Large freeform text area — prompt: "Tell us about books you've read! What did you like? What didn't you like?"
 - **Microphone entry suyggested** (use built-in OS dictation)
 - Examples as placeholder/hints: "I read Harry Potter and loved the magic parts but it was a little scary..."
@@ -87,7 +87,7 @@
   - Extracted books (title, author via metadata lookup)
   - Inferred reactions/sentiment per book
   - Reading status (finished, in progress)
-- **Confirmation screen**: shows parsed results as editable cards before merging
+- **Reading Log Confirmation screen**: shows parsed results as editable cards before merging
   - Each book card: title, author, inferred reactions (editable)
   - User can remove incorrectly parsed books, adjust reactions
   - "Looks good!" confirms → merges into Book History
@@ -125,8 +125,8 @@
 | 6 | Scan Detail | Push from list |
 | 7 | Book History | Tab 2 - list |
 | 8 | Book Detail | Modal/push |
-| 9 | Story Entry | Modal - dictation/text |
-| 10 | Story Confirmation | Push from Story Entry |
+| 9 | Reading Log Entry | Modal - dictation/text |
+| 10 | Reading Log Confirmation | Push from Reading Log Entry |
 | 11 | Profile | Tab 3 - form |
 
 **11 screens total**
@@ -140,4 +140,4 @@
 3. **Reactions are emoji toggle, not rating** — low friction for kids, playful, tap to add/remove
 4. **Profile is a single scrollable form** — no sub-screens needed
 5. **No recommendation history** — each scan's recommendation is live/current only
-6. **"Tell us what you've read"** — kids dictate/type a freeform story about their reading. Backend LLM parses into structured book entries with inferred reactions. Confirmation step before merge into history
+6. **"Tell us what you've read"** — kids dictate/type a freeform reading log about their reading. Backend LLM parses into structured book entries with inferred reactions. Confirmation step before merge into history
