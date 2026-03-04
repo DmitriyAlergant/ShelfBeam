@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
+import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -54,22 +55,27 @@ export default function BookDetailScreen() {
       const token = await getToken();
       if (!token) return;
 
-      const bookData = await getBook(token, bookId);
-      setBook(bookData);
+      try {
+        const bookData = await getBook(token, bookId);
+        setBook(bookData);
 
-      // Find the history entry
-      const history = await getHistory(token, activeProfile.id);
-      const all = [...history.reading, ...history.finished];
-      const found = all.find((h) => h.entry.id === entryId);
-      if (found) {
-        setEntry(found.entry);
-        setReactions(found.entry.reactions || []);
-        setStatus(found.entry.status);
+        // Find the history entry
+        const history = await getHistory(token, activeProfile.id);
+        const all = [...history.reading, ...history.finished];
+        const found = all.find((h) => h.entry.id === entryId);
+        if (found) {
+          setEntry(found.entry);
+          setReactions(found.entry.reactions || []);
+          setStatus(found.entry.status);
+        }
+      } catch (err) {
+        console.error("Failed to load book detail:", err);
       }
 
       setLoading(false);
     })();
-  }, [bookId, entryId, activeProfile, getToken]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, entryId, activeProfile?.id]);
 
   const toggleReaction = useCallback(
     async (emoji: string) => {
@@ -82,7 +88,9 @@ export default function BookDetailScreen() {
         : [...reactions, emoji];
 
       setReactions(newReactions);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
 
       const updated = await updateHistoryEntry(
         token,
@@ -113,25 +121,28 @@ export default function BookDetailScreen() {
     [activeProfile, entryId, getToken, status]
   );
 
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      "Remove from history?",
-      "This book will be removed from your reading history.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            if (!activeProfile || !entryId) return;
-            const token = await getToken();
-            if (!token) return;
-            await deleteHistoryEntry(token, activeProfile.id, entryId);
-            router.back();
-          },
-        },
-      ]
-    );
+  const handleDelete = useCallback(async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("Remove from history?\nThis book will be removed from your reading history.")) return;
+    } else {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          "Remove from history?",
+          "This book will be removed from your reading history.",
+          [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Remove", style: "destructive", onPress: () => resolve(true) },
+          ]
+        );
+      });
+      if (!confirmed) return;
+    }
+
+    if (!activeProfile || !entryId) return;
+    const token = await getToken();
+    if (!token) return;
+    await deleteHistoryEntry(token, activeProfile.id, entryId);
+    router.back();
   }, [activeProfile, entryId, getToken, router]);
 
   if (loading || !book) {
