@@ -34,13 +34,19 @@ Host Mac (not Docker):
 
 Screen Designs: `./designs/screen-map.md`
 Data Model: `./designs/data-model.md`
+
+## Design Guidelines
+
 Design Guidelines: `./designs/design-guidelines.md`
+
 
 ## Agentic Rules
 
 TEST WHENEVER POSSIBLE (backend). If you created something that can be tested or validated from bash/curl/cli/API call, validate.
 
 NO DEFAULTS FOR ENV VARS: All Env vars must be defined in the .env template, if something is missing, docker compose will show a visible warning on a missing env vars. Do not provide defaults for env vars in docker compose, application code, or jinja templates. In Python, prefer `os.environ["VAR"]` syntax and not os.getenv to force an unhandled exception if we forgot to defined the variable. In node.js use `const VAR = process.env.VAR ?? (() => { throw new Error('Missing required env VAR') })()`;
+
+IF YOU NEED A CREATIVE: consider if any well-known oss github library provides that (e.g. we are using DiceBear for avatars) and consider cloning/integrating/borrowing. Otherwise, use image-generation skill and resize accordingly. Store in app-mobile/assets. Use sub-agent task. 
 
 NO SUPPRESSION OF EXCEPTIONS: Unless specifically requested by a user, do not consume exceptions. Rely on application-level generic exceptions handling. Only try/catch exceptions when a specific error needs to be shown to the application consumer via frontend, and even then consider whether the exception needs to be re-thrown. When unsure, discuss options on exceptions handling with the user. BAD PATTERN: "try, catch Exception, log a warning, do nothing else, do not rethrow". 
 

@@ -4,7 +4,21 @@
 
 ---
 
-## Task 1: Mobile Shell — Navigation, Auth Gate & Profile Picker
+## Task 1: DiceBear Avatars — Avataaars Style
+
+Set up DiceBear avatar generation so every screen that shows a reader profile has a unique cartoon avatar from day one.
+
+- [ ] **Install `@dicebear/core` + `@dicebear/avataaars`** in `app-mobile`. These generate SVGs client-side — no external API calls needed.
+- [ ] **Avatar component**: create a reusable `<DiceBearAvatar seed={string} size={number} />` component that renders an Avataaars SVG via `react-native-svg`. The `seed` is the `avatar_key` stored on the reader profile.
+- [ ] **Avatar picker widget**: a reusable picker that shows a grid of ~6 random avatar options + a "Randomize" button to shuffle them. Returns the selected seed. This widget will be used in profile creation and profile editing.
+- [ ] **Validate**: render avatars in a test screen, confirm different seeds produce different avatars, confirm SVGs render cleanly at various sizes (32, 64, 128).
+- [ ] **Polish**: smooth transition when randomizing, consistent sizing across all placements (picker card, header icon, profile form).
+
+---
+
+## Task 2: Mobile Shell — Navigation, Auth Gate & Profile Picker
+
+Partially already done, but needs a revision to adhere to Design Guidelines that were created later.
 
 Get the app running end-to-end: open app → sign in → pick a reader → land on tabs. No real content yet, just the skeleton that every subsequent task plugs into.
 
@@ -21,7 +35,7 @@ Get the app running end-to-end: open app → sign in → pick a reader → land 
 
 ---
 
-## Task 2: Backend APIs — Scans, Books, History & File Upload
+## Task 3: Backend APIs — Scans, Books, History & File Upload
 
 Build every backend endpoint the remaining screens need. Validate each with curl before moving on.
 
@@ -48,7 +62,7 @@ Build every backend endpoint the remaining screens need. Validate each with curl
 
 ---
 
-## Task 3: Scan Flow Screens — Camera, Scan Home & Scan Detail
+## Task 4: Scan Flow Screens — Camera, Scan Home & Scan Detail
 
 The hero flow of the app. User takes a photo, sees detected books, gets recommendations.
 
@@ -66,7 +80,7 @@ The hero flow of the app. User takes a photo, sees detected books, gets recommen
 
 ---
 
-## Task 4: My Books & Profile Screens — History, Story Entry & Reader Profile
+## Task 5: My Books & Profile Screens — History, Story Entry & Reader Profile
 
 Complete the remaining two tabs and all their sub-screens.
 
@@ -80,7 +94,7 @@ Complete the remaining two tabs and all their sub-screens.
 
 ---
 
-## Task 5: Story Parsing via LLM
+## Task 6: Story Parsing via LLM
 
 Wire up real LLM-powered story parsing so the "Tell us what you've read" flow works end-to-end.
 
@@ -92,7 +106,7 @@ Wire up real LLM-powered story parsing so the "Tell us what you've read" flow wo
 
 ---
 
-## Task 6: Processing Pipeline Stub — Shelf Image → Book Recommendations
+## Task 7: Processing Pipeline Stub — Shelf Image → Book Recommendations
 
 Rudimentary stub: send the entire shelf photo to gpt-5.2 vision, get back detected books + recommendations in a single call. Implemented as a standalone Python worker.
 
@@ -101,3 +115,4 @@ Rudimentary stub: send the entire shelf photo to gpt-5.2 vision, get back detect
 - [ ] **Docker Compose**: add `worker` service, mount source for hot reload, pass `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `DATABASE_URL` from env. Mount `/data/uploads/` volume (shared with app-backend).
 - [ ] **Validate on `sample-images/`**: place 2-3 real bookshelf photos in `sample-images/`, create scans pointing to them via curl, watch worker pick them up and process. Verify detected books and recommendations make sense.
 - [ ] **Polish**: error recovery — if LLM call fails, set status to `error` with message (not silent). Add basic logging. Frontend "Re-run" button resets status to `detecting` so worker re-processes.
+
