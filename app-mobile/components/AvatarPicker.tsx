@@ -16,7 +16,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const GRID_COUNT = 6;
+const GRID_COUNT = 10;
 
 function generateSeeds(): string[] {
   return Array.from({ length: GRID_COUNT }, () =>
@@ -31,12 +31,15 @@ interface AvatarPickerProps {
   onSelect: (seed: string) => void;
   /** Size of each avatar in the grid */
   avatarSize?: number;
+  /** "M" | "F" | "" — passed to DiceBearAvatar for gender-appropriate styles */
+  gender?: string;
 }
 
 export function AvatarPicker({
   value,
   onSelect,
   avatarSize = 72,
+  gender,
 }: AvatarPickerProps) {
   const [seeds, setSeeds] = useState<string[]>(() => {
     const generated = generateSeeds();
@@ -70,7 +73,7 @@ export function AvatarPicker({
               seed === value && styles.selectedCell,
             ]}
           >
-            <DiceBearAvatar seed={seed} size={avatarSize} active={seed === value} />
+            <DiceBearAvatar seed={seed} size={avatarSize} active={seed === value} gender={gender} />
           </Pressable>
         ))}
       </View>

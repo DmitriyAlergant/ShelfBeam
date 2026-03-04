@@ -203,6 +203,7 @@ export default function ProfileScreen() {
               value={avatarKey}
               onSelect={handleAvatarSelect}
               avatarSize={56}
+              gender={gender}
             />
           </View>
         )}
