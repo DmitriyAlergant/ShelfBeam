@@ -78,6 +78,8 @@ export default function ProfilePickerScreen() {
   const handleProfileCreated = (newProfile: ProfileData) => {
     setProfiles((prev) => [...prev, newProfile]);
     setShowAddModal(false);
+    setActiveProfile(newProfile);
+    router.replace("/(main)/(tabs)/profile");
   };
 
   return (
