@@ -251,9 +251,6 @@ function buildLandingHTML(qrDataUrl: string): string {
           <a href="https://apps.apple.com/app/expo-go/id982107779" target="_blank" rel="noopener">
             App Store (iOS)
           </a>
-          <a href="https://play.google.com/store/apps/details?id=host.exp.exponent" target="_blank" rel="noopener">
-            Google Play (Android)
-          </a>
         </div>
         <div class="step">
           <span class="step-num">2</span>
