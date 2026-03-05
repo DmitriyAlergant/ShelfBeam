@@ -137,7 +137,7 @@ function BeamOverlay({
 }
 
 const WORKFLOW_STEPS = [
-  { key: "detecting", label: "Finding books", emoji: "🔍" },
+  { key: "detecting", label: "Noticing books", emoji: "🔍" },
   { key: "reading", label: "Reading spines", emoji: "📖" },
   { key: "looking_up", label: "Learning", emoji: "📚" },
   { key: "recommending", label: "Picking favorites", emoji: "⭐" },
