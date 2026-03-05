@@ -40,7 +40,7 @@ const PROCESSING_STEPS = [
   { key: "recommending", label: "Picking favorites", emoji: "⭐" },
 ];
 
-const TERMINAL_STATUSES = ["done", "error", "failed"];
+const TERMINAL_STATUSES = ["done", "error", "failed", "cancelled"];
 
 function getStepIndex(status: string | null): number {
   const idx = PROCESSING_STEPS.findIndex((s) => s.key === status);
@@ -58,6 +58,7 @@ export default function ScanDetailScreen() {
   const storeFetchScan = useScanStore((s) => s.fetchScan);
   const storeUpdateScan = useScanStore((s) => s.updateScan);
   const storePatchLocal = useScanStore((s) => s.patchScanLocal);
+  const storeCancelScan = useScanStore((s) => s.cancelScan);
   const [loading, setLoading] = useState(!scan);
   const [rerunPending, setRerunPending] = useState(false);
   const [comment, setComment] = useState("");
@@ -213,6 +214,13 @@ export default function ScanDetailScreen() {
     [activeProfile, getToken, id, showToast]
   );
 
+  const handleCancel = useCallback(async () => {
+    if (!id) return;
+    const token = await getToken();
+    if (!token) return;
+    storeCancelScan(token, id);
+  }, [id, getToken, storeCancelScan]);
+
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
     setRerunPending(true);
@@ -221,9 +229,6 @@ export default function ScanDetailScreen() {
     await storeUpdateScan(token, id, {
       processing_status: "pending",
       processing_task_id: null,
-      detected_books: null,
-      recommendation: null,
-      recommendation_summary: null,
     });
   }, [id, getToken, storeUpdateScan]);
 
@@ -239,6 +244,7 @@ export default function ScanDetailScreen() {
   const currentStep = getStepIndex(effectiveStatus);
   const isDone = effectiveStatus === "done";
   const isError = effectiveStatus === "error" || effectiveStatus === "failed";
+  const isCancelled = effectiveStatus === "cancelled";
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
@@ -275,7 +281,7 @@ export default function ScanDetailScreen() {
       )}
 
       {/* Processing stepper */}
-      {!isDone && !isError && (() => {
+      {!isDone && !isError && !isCancelled && (() => {
         const windowStart = currentStep > 0 ? 1 : 0;
         const visibleSteps = PROCESSING_STEPS.slice(windowStart);
         return (
@@ -319,11 +325,15 @@ export default function ScanDetailScreen() {
                 );
               })}
             </View>
-            <ActivityIndicator
-              size="small"
-              color={colors.beamYellow}
-              style={{ marginTop: spacing.md }}
-            />
+            <View style={styles.spinnerRow}>
+              <ActivityIndicator
+                size="small"
+                color={colors.beamYellow}
+              />
+              <TouchableOpacity style={styles.stopBadge} onPress={handleCancel} activeOpacity={0.7}>
+                <Text style={styles.stopButtonText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         );
       })()}
@@ -341,8 +351,19 @@ export default function ScanDetailScreen() {
         </View>
       )}
 
-      {/* Results (only when done) */}
-      {isDone && scan.recommendationSummary && (
+      {/* Cancelled state (only when no previous results to show) */}
+      {isCancelled && !scan.recommendationSummary && (
+        <View style={styles.cancelledCard}>
+          <Text style={styles.cancelledEmoji}>&#x270B;</Text>
+          <Text style={styles.cancelledText}>Scan processing was stopped</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={rerunRecommendation}>
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Results (shown when recommendations exist, even during reprocessing) */}
+      {scan.recommendationSummary && (
         <View style={styles.section}>
           {/* 1. Heading */}
           <Text style={styles.sectionTitle}>
@@ -410,36 +431,38 @@ export default function ScanDetailScreen() {
             <Text style={styles.recoText}>{scan.recommendationSummary}</Text>
           </View>
 
-          {/* 4. Note input + refresh */}
-          <View style={styles.commentRow}>
-            <TextInput
-              style={styles.commentInput}
-              value={comment}
-              onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
-              placeholder="Any special wishes? e.g. Something funny with animals..."
-              placeholderTextColor={colors.inkLight}
-              onBlur={saveComment}
-              returnKeyType="done"
-              onSubmitEditing={saveComment}
-            />
-            {savingComment ? (
-              <ActivityIndicator size="small" color={colors.beamYellow} />
-            ) : (
-              <Pressable
-                style={styles.refreshRecoButton}
-                onPress={rerunRecommendation}
-                // @ts-ignore – web-only: prevent blur from stealing the first click
-                onMouseDown={(e: any) => e.preventDefault()}
-              >
-                <Ionicons name="refresh" size={20} color={colors.inkDark} />
-              </Pressable>
-            )}
-          </View>
+          {/* 4. Note input + refresh (when done or cancelled with results) */}
+          {(isDone || isCancelled) && (
+            <View style={styles.commentRow}>
+              <TextInput
+                style={styles.commentInput}
+                value={comment}
+                onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
+                placeholder="Any special wishes? e.g. Something funny with animals..."
+                placeholderTextColor={colors.inkLight}
+                onBlur={saveComment}
+                returnKeyType="done"
+                onSubmitEditing={saveComment}
+              />
+              {savingComment ? (
+                <ActivityIndicator size="small" color={colors.beamYellow} />
+              ) : (
+                <Pressable
+                  style={styles.refreshRecoButton}
+                  onPress={rerunRecommendation}
+                  // @ts-ignore – web-only: prevent blur from stealing the first click
+                  onMouseDown={(e: any) => e.preventDefault()}
+                >
+                  <Ionicons name="refresh" size={20} color={colors.inkDark} />
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       )}
 
       {/* Note input while still processing (before results) */}
-      {!isDone && !isError && (
+      {!isDone && !isError && !isCancelled && (
         <View style={styles.section}>
           <View style={styles.commentRow}>
             <TextInput
@@ -663,6 +686,48 @@ const styles = StyleSheet.create({
   },
   stepLineComplete: {
     backgroundColor: colors.pageTeal,
+  },
+
+  // Spinner + stop
+  spinnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  stopBadge: {
+    backgroundColor: colors.coralLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  stopButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.spineCoral,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // Cancelled
+  cancelledCard: {
+    margin: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.lg,
+    alignItems: "center",
+  },
+  cancelledEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.sm,
+  },
+  cancelledText: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
 
   // Error

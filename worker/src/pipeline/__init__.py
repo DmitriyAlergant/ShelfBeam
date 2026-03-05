@@ -1,6 +1,6 @@
 """ShelfBeam multi-stage pipeline."""
 
-from .orchestrator import run_full_pipeline
+from .orchestrator import run_full_pipeline, ScanCancelledException
 from .stage_detect import detect_books
 from .stage_normalize import normalize_books
 from .stage_ocr import ocr_crops

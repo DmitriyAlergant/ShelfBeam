@@ -19,12 +19,14 @@ have fragments from adjacent books, or include non-text artifacts. Do your best 
 identify the actual book title and author from the noisy text.
 
 Rules:
-- Return a JSON array with one object per input entry, in the same order.
+- Return a JSON array of books. 
 - Each object must have: "index" (integer, from input), "title" (string), "author" (string or null).
 - If you cannot identify any book from the OCR text, set title to null and author to null.
 - Do NOT invent books. Only identify books you're reasonably confident about from the OCR clues.
 - Strip catalog numbers, library codes, and other non-book metadata.
 - Respond with ONLY the JSON array, no other text.
+- YOU CAN DEDUPLICATE. If entry had same book multiple times, return in only one (first index).
+- YOU CAN SPLIT BOOKS. If entry clearnly referred to two different books known to you, you can return them separately, link to the same index.
 
 Input entries:
 {entries_json}
@@ -87,7 +89,24 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
                 "author": item.get("author"),
             })
 
-    all_results.sort(key=lambda r: r["index"])
-    identified = sum(1 for r in all_results if r["title"])
-    log.info("Normalization complete: %d/%d books identified", identified, len(all_results))
-    return all_results
+    # Post-process: assign unique indices for split entries (multiple books from one OCR slot).
+    # Every entry gets a `detection_index` pointing back to the original detection for crop/OBB.
+    seen_indices: dict[int, int] = {}  # original index -> count
+    next_index = max((r["index"] for r in all_results), default=-1) + 1
+    final_results = []
+    for r in sorted(all_results, key=lambda x: x["index"]):
+        orig_idx = r["index"]
+        count = seen_indices.get(orig_idx, 0)
+        seen_indices[orig_idx] = count + 1
+        if count == 0:
+            # First (or only) entry for this detection — keep original index
+            final_results.append({**r, "detection_index": orig_idx})
+        else:
+            # Split: assign a new unique index, link back via detection_index
+            log.info("Split detected: index %d has multiple books, assigning new index %d", orig_idx, next_index)
+            final_results.append({**r, "index": next_index, "detection_index": orig_idx})
+            next_index += 1
+
+    identified = sum(1 for r in final_results if r["title"])
+    log.info("Normalization complete: %d/%d books identified", identified, len(final_results))
+    return final_results

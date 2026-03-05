@@ -169,6 +169,39 @@ router.patch("/api/scans/:id", requireAuth(), async (req: Request, res: Response
   res.json(updated[0]);
 });
 
+// Cancel scan
+router.post("/api/scans/:id/cancel", requireAuth(), async (req: Request, res: Response) => {
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+
+  // Ownership check: scan -> profile -> user
+  const rows = await db
+    .select({ scan: scan })
+    .from(scan)
+    .innerJoin(readerProfile, eq(scan.readerProfileId, readerProfile.id))
+    .where(and(eq(scan.id, req.params.id as string), eq(readerProfile.userId, user.id)));
+
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Scan not found" });
+    return;
+  }
+
+  const currentScan = rows[0].scan;
+  const terminalStatuses = ["done", "failed", "cancelled"];
+  if (terminalStatuses.includes(currentScan.processingStatus ?? "")) {
+    res.status(409).json({ error: "Scan is already in a terminal state" });
+    return;
+  }
+
+  // Set status to cancelled — worker will pick this up between stages
+  await db
+    .update(scan)
+    .set({ processingStatus: "cancelled", updatedAt: new Date() })
+    .where(eq(scan.id, req.params.id as string));
+
+  res.json({ status: "cancelled" });
+});
+
 // Delete scan
 router.delete("/api/scans/:id", requireAuth(), async (req: Request, res: Response) => {
   const user = await resolveAppUser(req, res);
