@@ -29,14 +29,8 @@ async function main() {
 
   app.use(cors());
   app.use(express.json());
-  app.use(adminAuthBypass);
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    // Skip Clerk middleware entirely for admin-authenticated requests
-    if ((req as any).__adminBypass) return next();
-    clerkMiddleware()(req, res, next);
-  });
 
-  // Proxy uploaded images from S3 (use regex to capture nested paths like crops/scan-id/file.jpg)
+  // Proxy uploaded images from S3 — public, no auth (before Clerk middleware)
   app.get(/^\/uploads\/(.+)/, async (req: Request, res: Response) => {
     try {
       const key = req.params[0];
@@ -50,6 +44,13 @@ async function main() {
       }
       throw err;
     }
+  });
+
+  app.use(adminAuthBypass);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Skip Clerk middleware entirely for admin-authenticated requests
+    if ((req as any).__adminBypass) return next();
+    clerkMiddleware()(req, res, next);
   });
 
   app.use(healthRouter);
