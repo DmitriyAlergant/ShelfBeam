@@ -233,7 +233,7 @@ def main():
         description="Standalone BookBeam pipeline: image -> book detection -> recommendations"
     )
     parser.add_argument("image", nargs="?", help="Path to a bookshelf photo (jpg/png)")
-    parser.add_argument("--stage", choices=["detect", "ocr"], help="Run a single pipeline stage")
+    parser.add_argument("--stage", choices=["detect", "ocr", "normalize"], help="Run a single pipeline stage")
     parser.add_argument("--input-json", help="Input JSON file from a previous stage (for --stage ocr, etc.)")
     parser.add_argument("--reader-profile-id", help="UUID of the reader_profile to load from the DB")
     parser.add_argument("--reader-comment", help="What the reader is looking for")
@@ -241,7 +241,7 @@ def main():
 
     args = parser.parse_args()
 
-    from pipeline import detect_books, ocr_crops
+    from pipeline import detect_books, normalize_books, ocr_crops
 
     if args.stage == "detect":
         if not args.image:
@@ -262,6 +262,14 @@ def main():
         else:
             parser.error("--stage ocr requires --input-json or an image path")
         result = ocr_crops(crops)
+        _output_result(result, args.output)
+
+    elif args.stage == "normalize":
+        if not args.input_json:
+            parser.error("--stage normalize requires --input-json (stage2 OCR output)")
+        with open(args.input_json) as f:
+            ocr_results = json.load(f)
+        result = normalize_books(ocr_results)
         _output_result(result, args.output)
 
     else:

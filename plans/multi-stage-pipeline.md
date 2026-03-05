@@ -68,14 +68,20 @@ standalone/
 
 ### Step 4: Normalization Stage
 
-[ ] Create a script
+[x] Create a script
 - `normalize_book(ocr_text: str, openai_client, model: str) -> dict`
 - One LLM call per up to 10 books using `OCR_NORMALIZE_MODEL` env var which shall be gemini-3.1-flash-lite-preview, or gpt-4.1-mini, or gpt-5-nano.
 - Given raw OCR text, return `{"title": str, "author": str|null}`. But in small batches.
 
-[ ]  **Test**: Run `--stage normalize --input-json stage2.json`
+[x]  **Test**: Run `--stage normalize --input-json stage2.json`
 
-[ ] Iterate on known samples see what can be improved. Compare models.
+[x] Iterate on known samples see what can be improved. Compare models.
+
+# Step 4.5 Reopen the OCR task.
+
+[ ] Try running MLX-VLM locally with `https://huggingface.co/mlx-community/PaddleOCR-VL-1.5-bf16`. Evaluate quality and performance. All developers are on Macs / Apple Silicon, it can be addded to docker compose and used as an inference endopint. We will figure something out for production.
+
+[ ] Revaluate the findings and the stage
 
 ### Step 5: `worker/src/pipeline/stage_recommend.py`
 [ ] Create a script
