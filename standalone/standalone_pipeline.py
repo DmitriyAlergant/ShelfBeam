@@ -233,7 +233,7 @@ def main():
         description="Standalone BookBeam pipeline: image -> book detection -> recommendations"
     )
     parser.add_argument("image", nargs="?", help="Path to a bookshelf photo (jpg/png)")
-    parser.add_argument("--stage", choices=["detect", "ocr", "normalize"], help="Run a single pipeline stage")
+    parser.add_argument("--stage", choices=["detect", "ocr", "normalize", "recommend"], help="Run a single pipeline stage")
     parser.add_argument("--input-json", help="Input JSON file from a previous stage (for --stage ocr, etc.)")
     parser.add_argument("--reader-profile-id", help="UUID of the reader_profile to load from the DB")
     parser.add_argument("--reader-comment", help="What the reader is looking for")
@@ -241,7 +241,7 @@ def main():
 
     args = parser.parse_args()
 
-    from pipeline import detect_books, normalize_books, ocr_crops
+    from pipeline import detect_books, normalize_books, ocr_crops, recommend_books
 
     if args.stage == "detect":
         if not args.image:
@@ -270,6 +270,18 @@ def main():
         with open(args.input_json) as f:
             ocr_results = json.load(f)
         result = normalize_books(ocr_results)
+        _output_result(result, args.output)
+
+    elif args.stage == "recommend":
+        if not args.input_json:
+            parser.error("--stage recommend requires --input-json (stage3 normalize output)")
+        if not args.reader_profile_id:
+            parser.error("--stage recommend requires --reader-profile-id")
+        with open(args.input_json) as f:
+            normalized_books = json.load(f)
+        reader_context = get_reader_context_from_db(args.reader_profile_id)
+        log.info("Reader context:\n%s", reader_context)
+        result = recommend_books(normalized_books, reader_context, args.reader_comment)
         _output_result(result, args.output)
 
     else:

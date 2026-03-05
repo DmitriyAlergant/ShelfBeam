@@ -88,7 +88,7 @@ standalone/
 - Default backend switched to "mlx", EasyOCR kept as fallback via OCR_BACKEND=easyocr
 
 ### Step 5: `worker/src/pipeline/stage_recommend.py`
-[ ] Create a script
+[x] Create a script
  `recommend_books(normalized_books: list[dict], reader_context: str, reader_comment: str|None) -> dict`
 - Uses `RECOMMENDATION_MODEL` env var, text-only (no images). Default to gpt-5.2.
 - Prompt includes:
@@ -98,7 +98,7 @@ standalone/
     -   Reader comment/note/wish for the current scan, if available.
 - Returns: `{"recommendations": [...], "recommendation_summary": str}`, up to 5 picks not more
 
-[ ] **Test**: Run `--stage recommend --input-json stage3.json --reader-profile-id <uuid>`
+[x] **Test**: Run `--stage recommend --input-json stage3.json --reader-profile-id <uuid>`
 
 
 ### Step 6: `worker/src/pipeline/orchestrator.py`
