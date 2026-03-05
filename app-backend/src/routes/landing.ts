@@ -184,6 +184,33 @@ function buildLandingHTML(qrDataUrl: string): string {
       margin-top: 20px;
     }
 
+    .store-links {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+
+    .store-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #2D2319;
+      color: #FFF8F0;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 600;
+      font-size: 0.8rem;
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .store-links a:hover {
+      opacity: 0.85;
+    }
+
+
     .footer {
       margin-top: 32px;
       font-size: 0.8rem;
@@ -218,7 +245,15 @@ function buildLandingHTML(qrDataUrl: string): string {
       <div class="instructions">
         <div class="step">
           <span class="step-num">1</span>
-          <span>Install <strong>Expo Go</strong> on your phone</span>
+          <span>Install the <strong>Expo Go</strong> app on your phone</span>
+        </div>
+        <div class="store-links">
+          <a href="https://apps.apple.com/app/expo-go/id982107779" target="_blank" rel="noopener">
+            App Store (iOS)
+          </a>
+          <a href="https://play.google.com/store/apps/details?id=host.exp.exponent" target="_blank" rel="noopener">
+            Google Play (Android)
+          </a>
         </div>
         <div class="step">
           <span class="step-num">2</span>
