@@ -62,6 +62,14 @@ export default function ScanDetailScreen() {
 
   const commentInitialized = useRef(false);
 
+  // Reset local state when navigating to a different scan
+  useEffect(() => {
+    setComment("");
+    setTakenBookKeys(new Set());
+    commentInitialized.current = false;
+    commentTouched.current = false;
+  }, [id]);
+
   const fetchScan = useCallback(async () => {
     if (!id) return;
     const token = await getToken();
