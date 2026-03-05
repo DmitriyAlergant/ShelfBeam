@@ -300,10 +300,17 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         if db_status:
             patch_scan({"processing_status": db_status})
 
-    # Load image as base64
-    image_b64 = load_image_as_base64(image_url)
-    img = Image.open(io.BytesIO(base64.b64decode(image_b64)))
-    log.info("Loaded image %dx%d", img.width, img.height)
+    # Load image as base64, converting HEIC/non-JPEG to JPEG for downstream APIs
+    raw_b64 = load_image_as_base64(image_url)
+    img = Image.open(io.BytesIO(base64.b64decode(raw_b64)))
+    log.info("Loaded image %dx%d (format=%s)", img.width, img.height, img.format)
+    if img.format not in ("JPEG", "PNG"):
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=90)
+        image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        log.info("Converted %s -> JPEG for pipeline", img.format)
+    else:
+        image_b64 = raw_b64
 
     # Get reader context for personalized recommendations
     reader_context = "No reader profile available."
