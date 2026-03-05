@@ -136,8 +136,7 @@ function BeamOverlay({
   );
 }
 
-const PROCESSING_STEPS = [
-  { key: "pending", label: "In queue", emoji: "⏳" },
+const WORKFLOW_STEPS = [
   { key: "detecting", label: "Finding books", emoji: "🔍" },
   { key: "reading", label: "Reading spines", emoji: "📖" },
   { key: "looking_up", label: "Learning", emoji: "📚" },
@@ -146,8 +145,8 @@ const PROCESSING_STEPS = [
 
 const TERMINAL_STATUSES = ["done", "error", "failed", "cancelled"];
 
-function getStepIndex(status: string | null): number {
-  const idx = PROCESSING_STEPS.findIndex((s) => s.key === status);
+function getWorkflowStepIndex(status: string | null): number {
+  const idx = WORKFLOW_STEPS.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : 0;
 }
 
@@ -345,7 +344,8 @@ export default function ScanDetailScreen() {
   }
 
   const effectiveStatus = rerunPending ? "pending" : scan.processingStatus;
-  const currentStep = getStepIndex(effectiveStatus);
+  const isPending = effectiveStatus === "pending";
+  const workflowStep = getWorkflowStepIndex(effectiveStatus);
   const isDone = effectiveStatus === "done";
   const isError = effectiveStatus === "error" || effectiveStatus === "failed";
   const isCancelled = effectiveStatus === "cancelled";
@@ -384,63 +384,69 @@ export default function ScanDetailScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Processing stepper */}
-      {!isDone && !isError && !isCancelled && (() => {
-        const windowStart = currentStep > 0 ? 1 : 0;
-        const visibleSteps = PROCESSING_STEPS.slice(windowStart);
-        return (
-          <View style={styles.section}>
-            <View style={styles.stepper}>
-              {visibleSteps.map((step, visIdx) => {
-                const globalIdx = windowStart + visIdx;
-                const isActive = globalIdx === currentStep;
-                const isComplete = globalIdx < currentStep;
-                return (
-                  <View key={step.key} style={styles.stepItem}>
-                    <View
-                      style={[
-                        styles.stepCircle,
-                        isActive && styles.stepCircleActive,
-                        isComplete && styles.stepCircleComplete,
-                      ]}
-                    >
-                      <Text style={styles.stepEmoji}>
-                        {isComplete ? "✓" : step.emoji}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        isActive && styles.stepLabelActive,
-                        isComplete && styles.stepLabelComplete,
-                      ]}
-                    >
-                      {step.label}
-                    </Text>
-                    {visIdx < visibleSteps.length - 1 && (
-                      <View
-                        style={[
-                          styles.stepLine,
-                          isComplete && styles.stepLineComplete,
-                        ]}
-                      />
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.spinnerRow}>
-              <ActivityIndicator
-                size="small"
-                color={colors.beamYellow}
-              />
+      {/* Processing: queued state OR workflow stepper */}
+      {!isDone && !isError && !isCancelled && (
+        <View style={styles.section}>
+          {isPending ? (
+            /* Queued — simple standalone indicator */
+            <View style={styles.queuedRow}>
+              <ActivityIndicator size="small" color={colors.beamYellow} />
+              <Text style={styles.queuedText}>In queue…</Text>
               <TouchableOpacity style={styles.stopBadge} onPress={handleCancel} activeOpacity={0.7}>
                 <Text style={styles.stopButtonText}>Stop</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        );
-      })()}
+          ) : (
+            /* Active workflow — 4-stage stepper */
+            <>
+              <View style={styles.stepper}>
+                {WORKFLOW_STEPS.map((step, i) => {
+                  const isActive = i === workflowStep;
+                  const isComplete = i < workflowStep;
+                  return (
+                    <View key={step.key} style={styles.stepItem}>
+                      <View
+                        style={[
+                          styles.stepCircle,
+                          isActive && styles.stepCircleActive,
+                          isComplete && styles.stepCircleComplete,
+                        ]}
+                      >
+                        <Text style={styles.stepEmoji}>
+                          {isComplete ? "✓" : step.emoji}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.stepLabel,
+                          isActive && styles.stepLabelActive,
+                          isComplete && styles.stepLabelComplete,
+                        ]}
+                      >
+                        {step.label}
+                      </Text>
+                      {i < WORKFLOW_STEPS.length - 1 && (
+                        <View
+                          style={[
+                            styles.stepLine,
+                            isComplete && styles.stepLineComplete,
+                          ]}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.spinnerRow}>
+                <ActivityIndicator size="small" color={colors.beamYellow} />
+                <TouchableOpacity style={styles.stopBadge} onPress={handleCancel} activeOpacity={0.7}>
+                  <Text style={styles.stopButtonText}>Stop</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      )}
 
       {/* Error state */}
       {isError && (
@@ -740,6 +746,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.body,
     color: colors.inkDark,
+  },
+
+  // Queued state
+  queuedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  queuedText: {
+    fontSize: 15,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkMedium,
   },
 
   // Processing stepper
