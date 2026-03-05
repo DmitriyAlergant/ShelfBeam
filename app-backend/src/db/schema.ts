@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, smallint, timestamp, jsonb, customType } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, smallint, boolean, timestamp, jsonb, customType } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -34,6 +34,7 @@ export const book = pgTable("book", {
   isbn: text("isbn"),
   coverUrl: text("cover_url"),
   coverImg: bytea("cover_img"),
+  isSeries: boolean("is_series"),
   rawMetadata: jsonb("raw_metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 });

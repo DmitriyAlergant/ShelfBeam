@@ -35,7 +35,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
 function countBooks(scan: ScanData): number {
@@ -78,7 +79,7 @@ export default function ScanHome() {
         <TouchableOpacity
           style={styles.scanCard}
           activeOpacity={0.8}
-          onPress={() => router.push(`/(main)/scan-detail?id=${item.id}`)}
+          onPress={() => router.push(`/(main)/(tabs)/scan-detail?id=${item.id}`)}
         >
           {item.imageUrl && (
             <Image
@@ -89,11 +90,6 @@ export default function ScanHome() {
           )}
           <View style={styles.scanInfo}>
             <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
-            {item.readerComment ? (
-              <Text style={styles.scanComment} numberOfLines={1}>
-                {item.readerComment}
-              </Text>
-            ) : null}
             <View style={styles.scanMeta}>
               <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] || colors.inkLight }]}>
                 <Text style={styles.statusText}>{STATUS_LABELS[status] || status}</Text>
@@ -182,7 +178,7 @@ const styles = StyleSheet.create({
   ctaButton: {
     backgroundColor: colors.beamYellow,
     borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
@@ -191,11 +187,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   ctaEmoji: {
-    fontSize: 28,
+    fontSize: 22,
   },
   ctaText: {
     color: colors.inkDark,
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: fonts.heading,
   },
   listContent: {

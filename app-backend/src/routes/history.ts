@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth, getAuth } from "@clerk/express";
 import { db } from "../db";
 import { bookHistoryEntry, book } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -18,13 +18,10 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     })
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
-    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)));
+    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)))
+    .orderBy(desc(bookHistoryEntry.createdAt));
 
-  // Group by status
-  const reading = rows.filter((r) => r.entry.status === "reading");
-  const finished = rows.filter((r) => r.entry.status === "finished");
-
-  res.json({ reading, finished });
+  res.json(rows);
 });
 
 // Add book to history
@@ -32,7 +29,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { book_id, source, source_id, status, comment } = req.body;
+  const { book_id, source, source_id, status, comment, reactions } = req.body;
   if (!book_id || !source) {
     res.status(400).json({ error: "book_id and source are required" });
     return;
@@ -63,7 +60,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
       sourceId: source_id || null,
       status: status || "reading",
       comment: comment || null,
-      reactions: [],
+      reactions: reactions || [],
     })
     .returning();
 

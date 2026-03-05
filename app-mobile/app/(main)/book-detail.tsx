@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -23,15 +24,8 @@ import {
   type HistoryEntry,
   getHistory,
 } from "../../lib/api";
-
-const REACTION_EMOJIS = [
-  "👍", "👎", "❤️", "🔥", "😂", "😢", "😱", "🤔", "🤯", "💤", "😡",
-];
-
-const STATUS_OPTIONS = [
-  { key: "reading", label: "Currently Reading", emoji: "📖" },
-  { key: "finished", label: "Finished", emoji: "✅" },
-];
+import EmojiReactions from "../../components/EmojiReactions";
+import { STATUS_OPTIONS } from "../../lib/reading-status";
 
 export default function BookDetailScreen() {
   const { entryId, bookId } = useLocalSearchParams<{
@@ -48,6 +42,7 @@ export default function BookDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [reactions, setReactions] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("reading");
+  const [comment, setComment] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -61,12 +56,12 @@ export default function BookDetailScreen() {
 
         // Find the history entry
         const history = await getHistory(token, activeProfile.id);
-        const all = [...history.reading, ...history.finished];
-        const found = all.find((h) => h.entry.id === entryId);
+        const found = history.find((h) => h.entry.id === entryId);
         if (found) {
           setEntry(found.entry);
           setReactions(found.entry.reactions || []);
           setStatus(found.entry.status);
+          setComment(found.entry.comment || "");
         }
       } catch (err) {
         console.error("Failed to load book detail:", err);
@@ -119,6 +114,23 @@ export default function BookDetailScreen() {
       setEntry(updated);
     },
     [activeProfile, entryId, getToken, status]
+  );
+
+  const saveComment = useCallback(
+    async (text: string) => {
+      if (!activeProfile || !entryId) return;
+      const token = await getToken();
+      if (!token) return;
+
+      const updated = await updateHistoryEntry(
+        token,
+        activeProfile.id,
+        entryId,
+        { comment: text || "" }
+      );
+      setEntry(updated);
+    },
+    [activeProfile, entryId, getToken]
   );
 
   const handleDelete = useCallback(async () => {
@@ -182,6 +194,11 @@ export default function BookDetailScreen() {
       {/* Title & Author */}
       <View style={styles.infoSection}>
         <Text style={styles.title}>{book.title}</Text>
+        {book.isSeries && (
+          <View style={styles.seriesBadge}>
+            <Text style={styles.seriesBadgeText}>Series</Text>
+          </View>
+        )}
         {book.author && <Text style={styles.author}>{book.author}</Text>}
       </View>
 
@@ -212,26 +229,24 @@ export default function BookDetailScreen() {
         </View>
       </View>
 
-      {/* Reactions */}
+      {/* Reactions — Slack-style add/remove */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>How did you feel about it?</Text>
-        <View style={styles.reactionGrid}>
-          {REACTION_EMOJIS.map((emoji) => {
-            const isSelected = reactions.includes(emoji);
-            return (
-              <TouchableOpacity
-                key={emoji}
-                style={[
-                  styles.reactionPill,
-                  isSelected && styles.reactionPillSelected,
-                ]}
-                onPress={() => toggleReaction(emoji)}
-              >
-                <Text style={styles.reactionEmoji}>{emoji}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <EmojiReactions reactions={reactions} onToggle={toggleReaction} />
+      </View>
+
+      {/* Comment */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Your comment</Text>
+        <TextInput
+          style={styles.commentInput}
+          value={comment}
+          onChangeText={setComment}
+          onBlur={() => saveComment(comment)}
+          placeholder="What did you think about this book?"
+          placeholderTextColor={colors.inkLight}
+          multiline
+        />
       </View>
 
       {/* Description */}
@@ -352,26 +367,29 @@ const styles = StyleSheet.create({
   statusLabelActive: {
     color: colors.inkDark,
   },
-  reactionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
+  seriesBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginTop: spacing.xs,
   },
-  reactionPill: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  seriesBadgeText: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  commentInput: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
     backgroundColor: colors.bgWarm,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reactionPillSelected: {
-    backgroundColor: colors.coralLight,
-    borderWidth: 2,
-    borderColor: colors.spineCoral,
-  },
-  reactionEmoji: {
-    fontSize: 22,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
   description: {
     fontSize: 15,

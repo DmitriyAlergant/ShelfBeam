@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
+import { useAppContext } from "../../lib/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { parseReadingLog } from "../../lib/api";
@@ -19,11 +20,12 @@ export default function ReadingLogEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getToken } = useAppAuth();
+  const { activeProfile } = useAppContext();
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !activeProfile) return;
     setSubmitting(true);
     const token = await getToken();
     if (!token) {
@@ -31,7 +33,7 @@ export default function ReadingLogEntryScreen() {
       return;
     }
 
-    const parsed = await parseReadingLog(token, text.trim());
+    const parsed = await parseReadingLog(token, text.trim(), activeProfile.id);
     setSubmitting(false);
 
     router.push({

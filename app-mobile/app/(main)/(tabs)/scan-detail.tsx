@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,12 +11,12 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAppAuth } from "../../lib/auth";
+import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
-import { useAppContext } from "../../lib/AppContext";
+import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
+import { useAppContext } from "../../../lib/AppContext";
 import {
   getScan,
   updateScan,
@@ -24,7 +25,7 @@ import {
   getImageUrl,
   type ScanData,
   type DetectedBook,
-} from "../../lib/api";
+} from "../../../lib/api";
 
 const PROCESSING_STEPS = [
   { key: "detecting", label: "Finding books...", emoji: "🔍" },
@@ -50,9 +51,12 @@ export default function ScanDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
-  const [takenBookIds, setTakenBookIds] = useState<Set<string>>(new Set());
+  const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
   const [imageExpanded, setImageExpanded] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const commentTouched = useRef(false);
 
   const fetchScan = useCallback(async () => {
     if (!id) return;
@@ -60,7 +64,7 @@ export default function ScanDetailScreen() {
     if (!token) return;
     const data = await getScan(token, id);
     setScan(data);
-    if (data.readerComment && !comment) {
+    if (data.readerComment != null && comment === "" && !commentTouched.current) {
       setComment(data.readerComment);
     }
     return data;
@@ -95,55 +99,101 @@ export default function ScanDetailScreen() {
   }, [scan?.processingStatus, id, getToken]);
 
   const saveComment = useCallback(async () => {
-    if (!id || !comment.trim()) return;
+    if (!id) return;
     setSavingComment(true);
     const token = await getToken();
     if (!token) { setSavingComment(false); return; }
-    const updated = await updateScan(token, id, { reader_comment: comment.trim() });
+    const updated = await updateScan(token, id, { reader_comment: comment.trim() || null });
     setScan(updated);
     setSavingComment(false);
   }, [id, comment, getToken]);
 
+  const showToast = useCallback(
+    (message: string) => {
+      setToastMessage(message);
+      toastOpacity.setValue(0);
+      Animated.sequence([
+        Animated.timing(toastOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1500),
+        Animated.timing(toastOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setToastMessage(null));
+    },
+    [toastOpacity]
+  );
+
+  const bookKey = (b: DetectedBook) => `${b.title}::${b.author ?? ""}`;
+
   const takeBook = useCallback(
     async (detectedBook: DetectedBook) => {
       if (!activeProfile) return;
-      const token = await getToken();
-      if (!token) return;
+      const key = bookKey(detectedBook);
 
-      // Create or find the book first
-      const book = await createBook(token, {
-        title: detectedBook.title,
-        author: detectedBook.author,
-        isbn: detectedBook.isbn,
-        cover_url: detectedBook.cover_url,
-      });
+      // Optimistic update
+      setTakenBookKeys((prev) => new Set([...prev, key]));
 
-      // Add to history
-      await addToHistory(token, activeProfile.id, {
-        book_id: book.id,
-        source: "scan",
-        source_id: id,
-        status: "reading",
-      });
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("No token");
 
-      setTakenBookIds((prev) => new Set([...prev, book.id]));
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const book = await createBook(token, {
+          title: detectedBook.title,
+          author: detectedBook.author,
+          isbn: detectedBook.isbn,
+          cover_url: detectedBook.cover_url,
+        });
+
+        await addToHistory(token, activeProfile.id, {
+          book_id: book.id,
+          source: "scan",
+          source_id: id,
+          status: "reading",
+        });
+
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        showToast(`"${detectedBook.title}" added to your reading list!`);
+      } catch {
+        // Revert optimistic update on failure
+        setTakenBookKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        showToast("Failed to add book. Try again.");
       }
     },
-    [activeProfile, getToken, id]
+    [activeProfile, getToken, id, showToast]
   );
 
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
+    // Immediately clear results locally so UI shows processing state
+    setScan((prev) => prev ? {
+      ...prev,
+      processingStatus: "detecting",
+      recommendation: null,
+      recommendationSummary: null,
+      detectedBooks: null,
+    } : prev);
     const token = await getToken();
     if (!token) return;
-    const updated = await updateScan(token, id, {
-      processing_status: "recommending",
-      recommendation: undefined,
-      recommendation_summary: undefined,
+    // Reset to detecting with null task_id so the worker picks it up fresh
+    await updateScan(token, id, {
+      processing_status: "detecting",
+      processing_task_id: null,
+      detected_books: null,
+      recommendation: null,
+      recommendation_summary: null,
     });
-    setScan(updated);
   }, [id, getToken]);
 
   if (loading || !scan) {
@@ -160,8 +210,9 @@ export default function ScanDetailScreen() {
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
+    <View style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={styles.scrollView}
       contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
     >
       {/* Back button */}
@@ -184,7 +235,7 @@ export default function ScanDetailScreen() {
           />
           <View style={styles.imageToggle}>
             <Text style={styles.imageToggleText}>
-              {imageExpanded ? "▲ Collapse" : "▼ Expand"}
+              {imageExpanded ? "⌃" : "⌄"}
             </Text>
           </View>
         </TouchableOpacity>
@@ -192,12 +243,12 @@ export default function ScanDetailScreen() {
 
       {/* Reader comment */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>What are you looking for today?</Text>
+        <Text style={styles.sectionLabel}>Any special wishes for today?</Text>
         <View style={styles.commentRow}>
           <TextInput
             style={styles.commentInput}
             value={comment}
-            onChangeText={setComment}
+            onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
             placeholder="e.g. Something funny with animals..."
             placeholderTextColor={colors.inkLight}
             onBlur={saveComment}
@@ -206,6 +257,11 @@ export default function ScanDetailScreen() {
           />
           {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
         </View>
+        {comment.trim().length > 0 && isDone && (
+          <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+            <Text style={styles.refreshRecoText}>Refresh Recommendations</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Processing stepper */}
@@ -278,14 +334,11 @@ export default function ScanDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Books Found</Text>
           {detectedBooks.map((book, idx) => {
-            const isTaken = book.book_id ? takenBookIds.has(book.book_id) : false;
+            const isTaken = takenBookKeys.has(bookKey(book));
             return (
               <View
                 key={`${book.title}-${idx}`}
-                style={[
-                  styles.bookCard,
-                  { transform: [{ rotate: idx % 2 === 0 ? "0.5deg" : "-0.5deg" }] },
-                ]}
+                style={styles.bookCard}
               >
                 {book.cover_url ? (
                   <Image
@@ -343,12 +396,18 @@ export default function ScanDetailScreen() {
           {scan.recommendation && typeof scan.recommendation === "object" && "text" in scan.recommendation && (
             <Text style={styles.recoText}>{scan.recommendation.text}</Text>
           )}
-          <TouchableOpacity style={styles.rerunButton} onPress={rerunRecommendation}>
-            <Text style={styles.rerunText}>🔄 Get New Picks</Text>
-          </TouchableOpacity>
         </View>
       )}
+
     </ScrollView>
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity, bottom: insets.bottom + 20 }]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -356,6 +415,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgCream,
+  },
+  scrollView: {
+    flex: 1,
   },
   center: {
     flex: 1,
@@ -618,16 +680,36 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: spacing.md,
   },
-  rerunButton: {
+  refreshRecoButton: {
     alignSelf: "flex-start",
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.pageTeal,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
   },
-  rerunText: {
+  refreshRecoText: {
     fontSize: 13,
     fontFamily: fonts.headingMedium,
-    color: colors.inkDark,
+    color: "#fff",
+  },
+
+  // Toast
+  toast: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.shelfBrown,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    ...shadows.card,
+  },
+  toastText: {
+    fontSize: 14,
+    fontFamily: fonts.headingMedium,
+    color: "#fff",
+    textAlign: "center",
   },
 });

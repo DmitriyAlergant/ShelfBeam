@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import time
+import uuid
 
 import httpx
 import psycopg2
@@ -23,6 +24,11 @@ ADMIN_API_KEY = os.environ["ADMIN_API_KEY"]
 TEST_USER_ID = os.environ["TEST_USER_ID"]
 
 POLL_INTERVAL_SECONDS = 5
+STALE_TASK_TIMEOUT_SECONDS = 120
+
+# Track the processing_task_id currently being worked on.
+# After restart this is empty, so all stuck intermediate scans get recovered.
+active_task_ids: set[str] = set()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,7 +85,7 @@ Rules:
 
 
 def get_pending_scans():
-    """Poll the database for scans waiting to be processed."""
+    """Poll the database for unclaimed scans waiting to be processed."""
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
@@ -88,6 +94,7 @@ def get_pending_scans():
                 SELECT s.id, s.image_url, s.reader_comment, s.reader_profile_id
                 FROM scan s
                 WHERE s.processing_status = 'detecting'
+                  AND s.processing_task_id IS NULL
                 ORDER BY s.created_at ASC
                 LIMIT 5
                 """
@@ -106,6 +113,64 @@ def get_pending_scans():
         conn.close()
 
 
+def claim_scan(scan_id: str) -> str | None:
+    """Atomically claim a scan by setting processing_task_id. Returns task_id or None if already claimed."""
+    task_id = str(uuid.uuid4())
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE scan
+                SET processing_task_id = %s, processing_task_started = now()
+                WHERE id = %s AND processing_task_id IS NULL
+                RETURNING id
+                """,
+                (task_id, scan_id),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if row:
+                return task_id
+            return None
+    finally:
+        conn.close()
+
+
+def recover_stale_scans():
+    """Reset scans stuck in intermediate states whose task is no longer active."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            # Find scans in intermediate states that are old enough to be stale
+            cur.execute(
+                """
+                SELECT id, processing_task_id
+                FROM scan
+                WHERE processing_status IN ('reading', 'looking_up', 'recommending')
+                  AND processing_task_started < now() - interval '%s seconds'
+                """,
+                (STALE_TASK_TIMEOUT_SECONDS,),
+            )
+            rows = cur.fetchall()
+            for row in rows:
+                stale_id, stale_task_id = str(row[0]), str(row[1]) if row[1] else None
+                if stale_task_id in active_task_ids:
+                    continue  # Still being worked on by this worker
+                cur.execute(
+                    """
+                    UPDATE scan
+                    SET processing_task_id = NULL, processing_status = 'detecting'
+                    WHERE id = %s
+                    """,
+                    (stale_id,),
+                )
+                log.info("Recovered stale scan %s (was task %s)", stale_id, stale_task_id)
+            conn.commit()
+    finally:
+        conn.close()
+
+
 def api_get(path: str) -> dict:
     """GET request to the backend API with admin auth."""
     resp = httpx.get(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, timeout=30)
@@ -120,9 +185,15 @@ def api_post(path: str, body: dict) -> dict:
     return resp.json()
 
 
+class TaskOrphanedError(Exception):
+    """Raised when the backend returns 409 — this task has been superseded."""
+
+
 def api_patch(path: str, body: dict) -> dict:
-    """PATCH request to the backend API with admin auth."""
+    """PATCH request to the backend API with admin auth. Raises TaskOrphanedError on 409."""
     resp = httpx.patch(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, json=body, timeout=30)
+    if resp.status_code == 409:
+        raise TaskOrphanedError(f"Task orphaned: {resp.json().get('error', 'task ID mismatch')}")
     resp.raise_for_status()
     return resp.json()
 
@@ -229,17 +300,25 @@ def call_vision_api(image_b64: str, media_type: str, reader_context: str, reader
                 raise ValueError(f"LLM returned invalid JSON after retry: {raw_text[:500]}")
 
 
-def process_scan(scan_row: dict):
-    """Process a single scan: detect books, upsert them, generate recommendations."""
+def process_scan(scan_row: dict, task_id: str):
+    """Process a single scan: detect books, upsert them, generate recommendations.
+
+    All PATCH calls include the task_id so the backend can reject stale writes.
+    Raises TaskOrphanedError if the scan was reprocessed mid-flight.
+    """
     scan_id = scan_row["id"]
     image_url = scan_row["image_url"]
     reader_comment = scan_row["reader_comment"]
     profile_id = scan_row["reader_profile_id"]
 
-    log.info("Processing scan %s (image: %s)", scan_id, image_url)
+    log.info("Processing scan %s (task %s, image: %s)", scan_id, task_id, image_url)
+
+    def patch_scan(body: dict) -> dict:
+        body["processing_task_id"] = task_id
+        return api_patch(f"/api/scans/{scan_id}", body)
 
     # Step 1: Update status to 'reading'
-    api_patch(f"/api/scans/{scan_id}", {"processing_status": "reading"})
+    patch_scan({"processing_status": "reading"})
 
     # Step 2: Load image
     image_b64, media_type = load_image_as_base64(image_url)
@@ -251,14 +330,14 @@ def process_scan(scan_row: dict):
         reader_context = get_reader_context(profile_id)
 
     # Step 4: Update status to 'looking_up' (calling the LLM)
-    api_patch(f"/api/scans/{scan_id}", {"processing_status": "looking_up"})
+    patch_scan({"processing_status": "looking_up"})
 
     # Step 5: Call vision API (single call for detect + recommend)
     result = call_vision_api(image_b64, media_type, reader_context, reader_comment)
     log.info("Vision API returned %d detected books", len(result.get("detected_books", [])))
 
     # Step 6: Update status to 'recommending' while we upsert books
-    api_patch(f"/api/scans/{scan_id}", {"processing_status": "recommending"})
+    patch_scan({"processing_status": "recommending"})
 
     # Step 7: Upsert each detected book into the books table
     detected_books = result.get("detected_books", [])
@@ -275,7 +354,7 @@ def process_scan(scan_row: dict):
     recommendations = result.get("recommendations", [])
     recommendation_summary = result.get("recommendation_summary", "")
 
-    api_patch(f"/api/scans/{scan_id}", {
+    patch_scan({
         "processing_status": "done",
         "detected_books": detected_books,
         "recommendation": recommendations,
@@ -294,22 +373,38 @@ def main():
 
     while True:
         try:
+            # Recover any scans stuck from a previous crash/restart
+            recover_stale_scans()
+
             scans = get_pending_scans()
             if scans:
                 log.info("Found %d pending scan(s)", len(scans))
                 for scan_row in scans:
+                    scan_id = scan_row["id"]
+                    task_id = claim_scan(scan_id)
+                    if not task_id:
+                        log.info("Scan %s already claimed, skipping", scan_id)
+                        continue
+
+                    active_task_ids.add(task_id)
                     try:
-                        process_scan(scan_row)
+                        process_scan(scan_row, task_id)
+                    except TaskOrphanedError:
+                        log.info("Scan %s task %s was orphaned (reprocessed), skipping", scan_id, task_id)
                     except Exception as exc:
-                        scan_id = scan_row["id"]
                         log.error("Failed to process scan %s: %s", scan_id, exc, exc_info=True)
                         try:
                             api_patch(f"/api/scans/{scan_id}", {
                                 "processing_status": "failed",
+                                "processing_task_id": task_id,
                                 "recommendation_summary": f"Processing error: {exc}",
                             })
+                        except TaskOrphanedError:
+                            log.info("Scan %s was reprocessed, not marking as failed", scan_id)
                         except Exception as patch_exc:
                             log.error("Failed to mark scan %s as failed: %s", scan_id, patch_exc)
+                    finally:
+                        active_task_ids.discard(task_id)
         except Exception as exc:
             log.error("Poll cycle error: %s", exc, exc_info=True)
 

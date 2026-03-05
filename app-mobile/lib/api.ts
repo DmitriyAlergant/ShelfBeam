@@ -212,10 +212,11 @@ export function updateScan(
   scanId: string,
   data: Partial<{
     processing_status: string;
-    detected_books: DetectedBook[];
-    recommendation: ScanRecommendation;
-    recommendation_summary: string;
-    reader_comment: string;
+    processing_task_id: string | null;
+    detected_books: DetectedBook[] | null;
+    recommendation: ScanRecommendation | null;
+    recommendation_summary: string | null;
+    reader_comment: string | null;
   }>
 ) {
   return apiFetch<ScanData>(`/api/scans/${scanId}`, {
@@ -232,13 +233,14 @@ export type BookData = {
   author: string | null;
   isbn: string | null;
   coverUrl: string | null;
+  isSeries: boolean | null;
   rawMetadata: unknown;
   createdAt: string;
 };
 
 export function createBook(
   token: string,
-  data: { title: string; author?: string; isbn?: string; cover_url?: string }
+  data: { title: string; author?: string; isbn?: string; cover_url?: string; is_series?: boolean }
 ) {
   return apiFetch<BookData>("/api/books", {
     method: "POST",
@@ -270,19 +272,14 @@ export type HistoryWithBook = {
   book: BookData;
 };
 
-export type HistoryResponse = {
-  reading: HistoryWithBook[];
-  finished: HistoryWithBook[];
-};
-
 export function getHistory(token: string, profileId: string) {
-  return apiFetch<HistoryResponse>(`/api/profiles/${profileId}/history`, { token });
+  return apiFetch<HistoryWithBook[]>(`/api/profiles/${profileId}/history`, { token });
 }
 
 export function addToHistory(
   token: string,
   profileId: string,
-  data: { book_id: string; source: string; source_id?: string; status?: string }
+  data: { book_id: string; source: string; source_id?: string; status?: string; reactions?: string[]; comment?: string }
 ) {
   return apiFetch<HistoryEntry>(`/api/profiles/${profileId}/history`, {
     method: "POST",
@@ -315,15 +312,19 @@ export function deleteHistoryEntry(token: string, profileId: string, entryId: st
 export type ParsedBookEntry = {
   title: string;
   author?: string;
-  inferred_status?: string;
-  inferred_reactions?: string[];
+  is_series?: boolean;
+  inferred_status?: string | null;
+  inferred_reactions?: string[] | null;
+  comment?: string | null;
+  entry_type: "new" | "update";
+  existing_history_entry_id?: string | null;
 };
 
-export async function parseReadingLog(token: string, text: string): Promise<ParsedBookEntry[]> {
+export async function parseReadingLog(token: string, text: string, profileId: string): Promise<ParsedBookEntry[]> {
   const res = await apiFetch<{ parsed: ParsedBookEntry[]; raw_input: string }>("/api/reading-log/parse", {
     method: "POST",
     token,
-    body: { text },
+    body: { text, profile_id: profileId },
   });
   return res.parsed;
 }

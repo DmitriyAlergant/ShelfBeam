@@ -97,7 +97,20 @@ router.patch("/api/scans/:id", requireAuth(), async (req: Request, res: Response
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { processing_status, detected_books, recommendation, recommendation_summary, reader_comment } = req.body;
+  const { processing_status, processing_task_id, detected_books, recommendation, recommendation_summary, reader_comment } = req.body;
+
+  // If caller provides a processing_task_id, validate it matches the current DB value.
+  // This prevents stale worker writes from overwriting results of a newer task.
+  if (processing_task_id !== undefined && processing_task_id !== null) {
+    const current = await db.select({ processingTaskId: scan.processingTaskId })
+      .from(scan)
+      .where(eq(scan.id, String(req.params.id)));
+    if (current.length === 0) { res.status(404).json({ error: "Scan not found" }); return; }
+    if (current[0].processingTaskId !== processing_task_id) {
+      res.status(409).json({ error: "Task ID mismatch — scan was reprocessed" });
+      return;
+    }
+  }
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (processing_status !== undefined) updates.processingStatus = processing_status;
@@ -105,6 +118,7 @@ router.patch("/api/scans/:id", requireAuth(), async (req: Request, res: Response
   if (recommendation !== undefined) updates.recommendation = recommendation;
   if (recommendation_summary !== undefined) updates.recommendationSummary = recommendation_summary;
   if (reader_comment !== undefined) updates.readerComment = reader_comment;
+  if (processing_task_id !== undefined) updates.processingTaskId = processing_task_id;
 
   const updated = await db
     .update(scan)
