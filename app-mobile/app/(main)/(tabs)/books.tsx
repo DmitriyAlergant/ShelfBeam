@@ -36,6 +36,8 @@ export default function MyBooks() {
   }, [activeProfile, getToken]);
 
   useEffect(() => {
+    setEntries([]);
+    setLoading(true);
     fetchHistory().finally(() => setLoading(false));
   }, [fetchHistory]);
 
@@ -120,7 +122,7 @@ export default function MyBooks() {
         onPress={() => router.push("/(main)/reading-log-entry")}
       >
         <Text style={styles.ctaEmoji}>✏️</Text>
-        <Text style={styles.ctaText}>Tell us what you've read</Text>
+        <Text style={styles.ctaText}>Tell us what you&apos;ve read</Text>
       </TouchableOpacity>
 
       {entries.length === 0 ? (
@@ -128,7 +130,7 @@ export default function MyBooks() {
           <Text style={styles.emptyEmoji}>📚</Text>
           <Text style={styles.emptyTitle}>No books yet</Text>
           <Text style={styles.emptySubtitle}>
-            Scan a shelf to discover books, or tell us what you've been reading!
+            Scan a shelf to discover books, or tell us what you&apos;ve been reading!
           </Text>
         </View>
       ) : (

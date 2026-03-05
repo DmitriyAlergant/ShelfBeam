@@ -1,15 +1,16 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, getAuth } from "@clerk/express";
+import { requireAuth } from "@clerk/express";
 import { db } from "../db";
 import { book } from "../db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { resolveAppUser } from "../lib/resolve-user";
 
 const router = Router();
 
 // Upsert book by ISBN or title+author normalization
 router.post("/api/books", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const { title, author, isbn, cover_url, raw_metadata, is_series } = req.body;
   if (!title) {
@@ -65,13 +66,13 @@ router.post("/api/books", requireAuth(), async (req: Request, res: Response) => 
 
 // Get single book detail
 router.get("/api/books/:id", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const rows = await db
     .select()
     .from(book)
-    .where(eq(book.id, String(req.params.id)));
+    .where(eq(book.id, req.params.id as string));
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Book not found" });

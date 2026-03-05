@@ -58,7 +58,7 @@ export default function ProfilePickerScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.emoji}>👋</Text>
-        <Text style={styles.title}>Who's Reading?</Text>
+        <Text style={styles.title}>Who&apos;s Reading?</Text>
         <Text style={styles.subtitle}>Pick your reader profile</Text>
       </View>
 

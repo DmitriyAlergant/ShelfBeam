@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +14,6 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
@@ -34,6 +34,8 @@ const PROCESSING_STEPS = [
   { key: "recommending", label: "Picking favorites...", emoji: "⭐" },
   { key: "done", label: "Ready!", emoji: "✨" },
 ];
+
+const TERMINAL_STATUSES = ["done", "error", "failed"];
 
 function getStepIndex(status: string | null): number {
   const idx = PROCESSING_STEPS.findIndex((s) => s.key === status);
@@ -58,17 +60,20 @@ export default function ScanDetailScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const commentTouched = useRef(false);
 
+  const commentInitialized = useRef(false);
+
   const fetchScan = useCallback(async () => {
     if (!id) return;
     const token = await getToken();
     if (!token) return;
     const data = await getScan(token, id);
     setScan(data);
-    if (data.readerComment != null && comment === "" && !commentTouched.current) {
+    if (data.readerComment != null && !commentInitialized.current && !commentTouched.current) {
       setComment(data.readerComment);
+      commentInitialized.current = true;
     }
     return data;
-  }, [id, getToken, comment]);
+  }, [id, getToken]);
 
   useEffect(() => {
     fetchScan().finally(() => setLoading(false));
@@ -77,7 +82,7 @@ export default function ScanDetailScreen() {
   // Poll while processing
   useEffect(() => {
     if (!scan) return;
-    const isDone = scan.processingStatus === "done" || scan.processingStatus === "error";
+    const isDone = TERMINAL_STATUSES.includes(scan.processingStatus ?? "");
     if (isDone) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
@@ -88,7 +93,7 @@ export default function ScanDetailScreen() {
       if (!token || !id) return;
       const updated = await getScan(token, id);
       setScan(updated);
-      if (updated.processingStatus === "done" || updated.processingStatus === "error") {
+      if (TERMINAL_STATUSES.includes(updated.processingStatus ?? "")) {
         if (pollRef.current) clearInterval(pollRef.current);
       }
     }, 2000);
@@ -206,7 +211,7 @@ export default function ScanDetailScreen() {
 
   const currentStep = getStepIndex(scan.processingStatus);
   const isDone = scan.processingStatus === "done";
-  const isError = scan.processingStatus === "error";
+  const isError = scan.processingStatus === "error" || scan.processingStatus === "failed";
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
@@ -393,7 +398,13 @@ export default function ScanDetailScreen() {
           {scan.recommendationSummary && (
             <Text style={styles.recoText}>{scan.recommendationSummary}</Text>
           )}
-          {scan.recommendation && typeof scan.recommendation === "object" && "text" in scan.recommendation && (
+          {Array.isArray(scan.recommendation) && scan.recommendation.map((pick, i) => (
+            <View key={i} style={styles.recoPick}>
+              <Text style={styles.recoPickTitle}>{pick.title}{pick.author ? ` by ${pick.author}` : ""}</Text>
+              {pick.reason && <Text style={styles.recoPickReason}>{pick.reason}</Text>}
+            </View>
+          ))}
+          {scan.recommendation && !Array.isArray(scan.recommendation) && "text" in scan.recommendation && (
             <Text style={styles.recoText}>{scan.recommendation.text}</Text>
           )}
         </View>
@@ -679,6 +690,21 @@ const styles = StyleSheet.create({
     color: colors.inkDark,
     lineHeight: 22,
     marginBottom: spacing.md,
+  },
+  recoPick: {
+    marginBottom: spacing.sm,
+  },
+  recoPickTitle: {
+    fontSize: 15,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkDark,
+  },
+  recoPickReason: {
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    lineHeight: 20,
+    marginTop: 2,
   },
   refreshRecoButton: {
     alignSelf: "flex-start",

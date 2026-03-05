@@ -1,59 +1,34 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, getAuth } from "@clerk/express";
+import { requireAuth } from "@clerk/express";
 import { db } from "../db";
-import { appUser, readerProfile } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { readerProfile, scan, bookHistoryEntry } from "../db/schema";
+import { eq, and } from "drizzle-orm";
+import { resolveAppUser } from "../lib/resolve-user";
 
 const router = Router();
 
 router.get("/api/profiles", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const users = await db
-    .select()
-    .from(appUser)
-    .where(eq(appUser.clerkId, userId));
-
-  if (users.length === 0) {
-    res.status(404).json({ error: "User not found. Call POST /api/users/sync first." });
-    return;
-  }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const profiles = await db
     .select()
     .from(readerProfile)
-    .where(eq(readerProfile.userId, users[0].id));
+    .where(eq(readerProfile.userId, user.id));
 
   res.json(profiles);
 });
 
 router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const users = await db
-    .select()
-    .from(appUser)
-    .where(eq(appUser.clerkId, userId));
-
-  if (users.length === 0) {
-    res.status(404).json({ error: "User not found. Call POST /api/users/sync first." });
-    return;
-  }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const { name, avatar_key, birth_year, gender, languages, interests } = req.body;
 
   const inserted = await db
     .insert(readerProfile)
     .values({
-      userId: users[0].id,
+      userId: user.id,
       name,
       avatarKey: avatar_key,
       birthYear: birth_year,
@@ -68,16 +43,13 @@ router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) 
 
 // Get single reader profile by ID
 router.get("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const rows = await db
     .select()
     .from(readerProfile)
-    .where(eq(readerProfile.id, String(req.params.id)));
+    .where(and(eq(readerProfile.id, req.params.id as string), eq(readerProfile.userId, user.id)));
 
   if (rows.length === 0) {
     res.status(404).json({ error: "Profile not found" });
@@ -89,11 +61,8 @@ router.get("/api/profiles/:id", requireAuth(), async (req: Request, res: Respons
 
 // Update reader profile
 router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const { name, avatar_key, birth_year, gender, languages, interests, notes } = req.body;
 
@@ -109,7 +78,7 @@ router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Respo
   const updated = await db
     .update(readerProfile)
     .set(updates)
-    .where(eq(readerProfile.id, String(req.params.id)))
+    .where(and(eq(readerProfile.id, req.params.id as string), eq(readerProfile.userId, user.id)))
     .returning();
 
   if (updated.length === 0) {
@@ -118,6 +87,34 @@ router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Respo
   }
 
   res.json(updated[0]);
+});
+
+// Delete reader profile and all associated data
+router.delete("/api/profiles/:id", requireAuth(), async (req: Request, res: Response) => {
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+
+  const profileId = req.params.id as string;
+
+  // Verify the profile belongs to this user
+  const profiles = await db
+    .select()
+    .from(readerProfile)
+    .where(and(eq(readerProfile.id, profileId), eq(readerProfile.userId, user.id)));
+
+  if (profiles.length === 0) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+
+  // Delete associated data in a transaction
+  await db.transaction(async (tx) => {
+    await tx.delete(bookHistoryEntry).where(eq(bookHistoryEntry.readerProfileId, profileId));
+    await tx.delete(scan).where(eq(scan.readerProfileId, profileId));
+    await tx.delete(readerProfile).where(eq(readerProfile.id, profileId));
+  });
+
+  res.json({ deleted: true });
 });
 
 export default router;

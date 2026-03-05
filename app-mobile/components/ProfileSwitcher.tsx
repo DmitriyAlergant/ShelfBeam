@@ -3,6 +3,7 @@ import { useAppAuth } from "../lib/auth";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -13,14 +14,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, shadows, spacing } from "../lib/theme";
 import { useAppContext } from "../lib/AppContext";
-import { getProfiles, type ProfileData } from "../lib/api";
+import { getProfiles, deleteProfile, type ProfileData } from "../lib/api";
 import { DiceBearAvatar } from "./DiceBearAvatar";
 
 export function ProfileSwitcher() {
   const insets = useSafeAreaInsets();
-  const { activeProfile, setActiveProfile } = useAppContext();
+  const { activeProfile, setActiveProfile, pendingSave } = useAppContext();
   const { signOut, getToken } = useAppAuth();
   const router = useRouter();
+  const [savingFromBar, setSavingFromBar] = useState(false);
 
   const [showSheet, setShowSheet] = useState(false);
   const [profiles, setProfiles] = useState<ProfileData[]>([]);
@@ -39,6 +41,35 @@ export function ProfileSwitcher() {
   const handleSwitch = (profile: ProfileData) => {
     setActiveProfile(profile);
     setShowSheet(false);
+  };
+
+  const handleDelete = (profile: ProfileData) => {
+    Alert.alert(
+      "Delete Reader Profile",
+      `Are you sure you want to permanently delete "${profile.name}"?\n\nThis will remove all their reading history, scans, and recommendations. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Forever",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token = await getToken();
+              if (!token) return;
+              await deleteProfile(token, profile.id);
+              setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
+              if (activeProfile?.id === profile.id) {
+                setActiveProfile(null);
+                setShowSheet(false);
+                router.replace("/(main)/profile-picker");
+              }
+            } catch {
+              Alert.alert("Error", "Failed to delete profile. Please try again.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSwitchReader = () => {
@@ -68,6 +99,28 @@ export function ProfileSwitcher() {
           <Text style={styles.chevron}>▾</Text>
         </TouchableOpacity>
 
+        {pendingSave && (
+          <TouchableOpacity
+            style={[styles.saveButton, savingFromBar && styles.saveButtonDisabled]}
+            disabled={savingFromBar}
+            onPress={async () => {
+              setSavingFromBar(true);
+              try {
+                await pendingSave();
+              } catch {
+                Alert.alert("Save Error", "Your changes could not be saved.");
+              } finally {
+                setSavingFromBar(false);
+              }
+            }}
+          >
+            {savingFromBar ? (
+              <ActivityIndicator size="small" color={colors.inkDark} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       <Modal visible={showSheet} animationType="slide" transparent>
@@ -93,22 +146,32 @@ export function ProfileSwitcher() {
                 showsVerticalScrollIndicator={false}
               >
                 {profiles.map((profile) => (
-                  <TouchableOpacity
-                    key={profile.id}
-                    style={[
-                      sheetStyles.item,
-                      profile.id === activeProfile.id &&
-                        sheetStyles.activeItem,
-                    ]}
-                    onPress={() => handleSwitch(profile)}
-                  >
-                    <DiceBearAvatar
-                      seed={profile.avatarKey || profile.name}
-                      size={44}
-                      active={profile.id === activeProfile.id}
-                    />
-                    <Text style={sheetStyles.itemName}>{profile.name}</Text>
-                  </TouchableOpacity>
+                  <View key={profile.id} style={sheetStyles.itemRow}>
+                    <TouchableOpacity
+                      style={[
+                        sheetStyles.item,
+                        profile.id === activeProfile.id &&
+                          sheetStyles.activeItem,
+                      ]}
+                      onPress={() => handleSwitch(profile)}
+                    >
+                      <DiceBearAvatar
+                        seed={profile.avatarKey || profile.name}
+                        size={44}
+                        active={profile.id === activeProfile.id}
+                      />
+                      <Text style={sheetStyles.itemName}>{profile.name}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={sheetStyles.deleteButton}
+                      onPress={() => handleDelete(profile)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <View style={sheetStyles.deleteCircle}>
+                        <Text style={sheetStyles.deleteX}>{"\u00d7"}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 ))}
               </ScrollView>
             )}
@@ -162,6 +225,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.inkMedium,
   },
+  saveButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.beamYellow,
+    ...shadows.button,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkDark,
+  },
 });
 
 const sheetStyles = StyleSheet.create({
@@ -199,12 +277,35 @@ const sheetStyles = StyleSheet.create({
   list: {
     gap: spacing.sm,
   },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   item: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
+  },
+  deleteButton: {
+    padding: spacing.sm,
+  },
+  deleteCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.spineCoral,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteX: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: fonts.headingSemiBold,
+    lineHeight: 22,
+    marginTop: -1,
   },
   activeItem: {
     backgroundColor: colors.beamYellowLight,

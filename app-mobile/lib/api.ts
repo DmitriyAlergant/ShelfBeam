@@ -119,6 +119,13 @@ export function createProfile(
   });
 }
 
+export function deleteProfile(token: string, profileId: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/profiles/${profileId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export function updateProfile(
   token: string,
   profileId: string,
@@ -162,10 +169,13 @@ export type DetectedBook = {
   book_id?: string;
 };
 
-export type ScanRecommendation = {
-  text: string;
-  top_picks?: string[];
+export type ScanRecommendationPick = {
+  title: string;
+  author?: string;
+  reason: string;
 };
+
+export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };
 
 export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string }> {
   const formData = new FormData();

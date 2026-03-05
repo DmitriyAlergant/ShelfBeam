@@ -22,6 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
   recommending: "Picking favorites...",
   done: "Done",
   error: "Error",
+  failed: "Error",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,6 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
   recommending: colors.pageTeal,
   done: colors.pageTeal,
   error: colors.spineCoral,
+  failed: colors.spineCoral,
 };
 
 function formatDate(dateStr: string): string {
@@ -61,6 +63,8 @@ export default function ScanHome() {
   }, [activeProfile, getToken]);
 
   useEffect(() => {
+    setScans([]);
+    setLoading(true);
     fetchScans().finally(() => setLoading(false));
   }, [fetchScans]);
 

@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -57,8 +55,8 @@ const INTEREST_SUGGESTIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { getToken, signOut } = useAppAuth();
-  const { activeProfile, setActiveProfile } = useAppContext();
+  const { getToken } = useAppAuth();
+  const { activeProfile, setActiveProfile, setPendingSave } = useAppContext();
 
   const [name, setName] = useState("");
   const [avatarKey, setAvatarKey] = useState("");
@@ -88,71 +86,95 @@ export default function ProfileScreen() {
     setNotes(activeProfile.notes || "");
   }, [activeProfile, initializedProfileId]);
 
-  const save = useCallback(
-    async (
-      updates: Record<string, unknown>
-    ) => {
-      if (!activeProfile) return;
-      const token = await getToken();
-      if (!token) return;
-      setSaving(true);
-      const updated = await updateProfile(token, activeProfile.id, updates as Parameters<typeof updateProfile>[2]);
-      setActiveProfile(updated);
-      setSaving(false);
-    },
-    [activeProfile, getToken, setActiveProfile]
-  );
+  // Dirty tracking — compare local state to activeProfile
+  const isDirty = useMemo(() => {
+    if (!activeProfile) return false;
+    const p = activeProfile;
+    if ((name || "") !== (p.name || "")) return true;
+    if ((avatarKey || "") !== (p.avatarKey || p.name || "")) return true;
+    const yr = parseInt(birthYear, 10);
+    if ((yr || null) !== (p.birthYear || null)) return true;
+    if ((gender || "") !== (p.gender || "")) return true;
+    if (JSON.stringify(languages) !== JSON.stringify(p.languages || [])) return true;
+    if (JSON.stringify(interests) !== JSON.stringify(p.interests || [])) return true;
+    if ((notes || "") !== (p.notes || "")) return true;
+    return false;
+  }, [activeProfile, name, avatarKey, birthYear, gender, languages, interests, notes]);
 
-  const handleNameBlur = useCallback(() => {
-    if (name.trim() && name.trim() !== activeProfile?.name) {
-      save({ name: name.trim() });
+  const saveAll = useCallback(async () => {
+    if (!activeProfile) return;
+    const token = await getToken();
+    if (!token) return;
+    setSaving(true);
+    try {
+      const yr = parseInt(birthYear, 10);
+      const updated = await updateProfile(token, activeProfile.id, {
+        name: name.trim(),
+        avatar_key: avatarKey,
+        birth_year: (yr && yr >= 2000 && yr <= new Date().getFullYear()) ? yr : activeProfile.birthYear,
+        gender: gender || null,
+        languages,
+        interests,
+        notes: notes.trim(),
+      } as Parameters<typeof updateProfile>[2]);
+      setActiveProfile(updated);
+      // Re-sync local state with normalized values so isDirty resets
+      setName(updated.name || "");
+      setAvatarKey(updated.avatarKey || updated.name || "");
+      setBirthYear(updated.birthYear ? String(updated.birthYear) : "");
+      setGender(updated.gender || "");
+      setLanguages(updated.languages || []);
+      setInterests(updated.interests || []);
+      setNotes(updated.notes || "");
+    } finally {
+      setSaving(false);
     }
-  }, [name, activeProfile, save]);
+  }, [activeProfile, getToken, setActiveProfile, name, avatarKey, birthYear, gender, languages, interests, notes]);
+
+  // Register save action in top bar via context
+  const saveAllRef = useRef(saveAll);
+  saveAllRef.current = saveAll;
+  useEffect(() => {
+    if (isDirty) {
+      setPendingSave(() => saveAllRef.current());
+    } else {
+      setPendingSave(null);
+    }
+    return () => setPendingSave(null);
+  }, [isDirty, setPendingSave]);
+
 
   const handleAvatarSelect = useCallback(
     (seed: string) => {
       setAvatarKey(seed);
       setShowAvatarPicker(false);
-      save({ avatar_key: seed });
     },
-    [save]
+    []
   );
-
-  const handleBirthYearBlur = useCallback(() => {
-    const yr = parseInt(birthYear, 10);
-    if (yr && yr >= 2000 && yr <= 2025) {
-      save({ birth_year: yr });
-    }
-  }, [birthYear, save]);
 
   const handleGenderSelect = useCallback(
     (g: string) => {
       setGender(g);
-      save({ gender: g || null });
     },
-    [save]
+    []
   );
 
   const toggleLanguage = useCallback(
     (lang: string) => {
-      const newLangs = languages.includes(lang)
-        ? languages.filter((l) => l !== lang)
-        : [...languages, lang];
-      setLanguages(newLangs);
-      save({ languages: newLangs });
+      setLanguages((prev) =>
+        prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+      );
     },
-    [languages, save]
+    []
   );
 
   const toggleInterest = useCallback(
     (interest: string) => {
-      const newInterests = interests.includes(interest)
-        ? interests.filter((i) => i !== interest)
-        : [...interests, interest];
-      setInterests(newInterests);
-      save({ interests: newInterests });
+      setInterests((prev) =>
+        prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
+      );
     },
-    [interests, save]
+    []
   );
 
   const addCustomInterest = useCallback(() => {
@@ -162,12 +184,10 @@ export default function ProfileScreen() {
       setShowCustomInterest(false);
       return;
     }
-    const newInterests = [...interests, trimmed];
-    setInterests(newInterests);
+    setInterests([...interests, trimmed]);
     setNewInterest("");
     setShowCustomInterest(false);
-    save({ interests: newInterests });
-  }, [newInterest, interests, save]);
+  }, [newInterest, interests]);
 
   const addCustomLanguage = useCallback(() => {
     const trimmed = newLanguage.trim();
@@ -176,16 +196,10 @@ export default function ProfileScreen() {
       setShowCustomLanguage(false);
       return;
     }
-    const newLangs = [...languages, trimmed];
-    setLanguages(newLangs);
+    setLanguages([...languages, trimmed]);
     setNewLanguage("");
     setShowCustomLanguage(false);
-    save({ languages: newLangs });
-  }, [newLanguage, languages, save]);
-
-  const handleNotesBlur = useCallback(() => {
-    save({ notes: notes.trim() });
-  }, [notes, save]);
+  }, [newLanguage, languages]);
 
   if (!activeProfile) return null;
 
@@ -201,9 +215,6 @@ export default function ProfileScreen() {
       >
         <View style={styles.headerRow}>
           <Text style={styles.header}>Reader Profile</Text>
-          {saving && (
-            <ActivityIndicator size="small" color={colors.beamYellow} />
-          )}
         </View>
 
         {/* Avatar section */}
@@ -236,7 +247,6 @@ export default function ProfileScreen() {
             style={styles.textInput}
             value={name}
             onChangeText={setName}
-            onBlur={handleNameBlur}
             placeholder="Reader's name"
             placeholderTextColor={colors.inkLight}
             returnKeyType="done"
@@ -250,7 +260,6 @@ export default function ProfileScreen() {
             style={styles.textInput}
             value={birthYear}
             onChangeText={setBirthYear}
-            onBlur={handleBirthYearBlur}
             placeholder="e.g. 2016"
             placeholderTextColor={colors.inkLight}
             keyboardType="number-pad"
@@ -425,7 +434,6 @@ export default function ProfileScreen() {
             style={[styles.textInput, styles.notesInput]}
             value={notes}
             onChangeText={setNotes}
-            onBlur={handleNotesBlur}
             placeholder="Anything else about me as a reader..."
             placeholderTextColor={colors.inkLight}
             multiline
@@ -433,12 +441,6 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={() => signOut()}
-        >
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -548,9 +550,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: colors.bgWarm,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   multiChipActive: {
-    backgroundColor: colors.pageTeal,
+    backgroundColor: colors.beamYellowLight,
+    borderColor: colors.beamYellow,
   },
   multiChipText: {
     fontSize: 13,
@@ -558,17 +563,18 @@ const styles = StyleSheet.create({
     color: colors.inkMedium,
   },
   multiChipTextActive: {
-    color: "#fff",
+    color: colors.shelfBrown,
   },
   interestChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: colors.bgWarm,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   interestChipActive: {
     backgroundColor: colors.beamYellowLight,
-    borderWidth: 1,
     borderColor: colors.beamYellow,
   },
   interestChipText: {
@@ -592,29 +598,20 @@ const styles = StyleSheet.create({
   },
   inlineInputWrap: {
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.beamYellow,
-    backgroundColor: colors.bgWarm,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    backgroundColor: colors.beamYellowLight,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     minWidth: 80,
+    justifyContent: "center",
   },
   inlineInput: {
     fontSize: 13,
     fontFamily: fonts.body,
     color: colors.inkDark,
     padding: 0,
-  },
-  logoutButton: {
-    marginTop: spacing.md,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.bgWarm,
-  },
-  logoutText: {
-    fontSize: 15,
-    fontFamily: fonts.bodyMedium,
-    color: colors.spineCoral,
+    margin: 0,
+    lineHeight: 18,
   },
 });
