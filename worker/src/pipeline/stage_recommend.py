@@ -71,7 +71,7 @@ def recommend_books(
         }
 
     books_json = json.dumps(
-        [{"index": b["index"], "title": b["title"], "author": b.get("author")} for b in identified_books],
+        [{"index": b["index"], "title": b["title"], "author": b.get("author"), "language": b.get("language")} for b in identified_books],
         indent=2,
         ensure_ascii=False,
     )

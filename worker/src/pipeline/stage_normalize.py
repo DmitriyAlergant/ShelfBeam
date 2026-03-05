@@ -20,8 +20,8 @@ identify the actual book title and author from the noisy text.
 
 Rules:
 - Return a JSON array with one object per input entry, in the same order.
-- Each object must have: "index" (integer, from input), "title" (string), "author" (string or null).
-- If you cannot identify any book from the OCR text, set title to null and author to null.
+- Each object must have: "index" (integer, from input), "title" (string), "author" (string or null), "language" (string, ISO 639-1 two-letter code like "en", "ru", "es", "fr", etc.).
+- If you cannot identify any book from the OCR text, set title to null, author to null, and language to null.
 - Do NOT invent books. Only identify books you're reasonably confident about from the OCR clues.
 - Strip catalog numbers, library codes, and other non-book metadata.
 - Respond with ONLY the JSON array, no other text.
@@ -85,6 +85,7 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
                 "index": item["index"],
                 "title": item.get("title"),
                 "author": item.get("author"),
+                "language": item.get("language"),
             })
 
     all_results.sort(key=lambda r: r["index"])

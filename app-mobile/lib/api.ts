@@ -174,6 +174,7 @@ export type DetectedBook = {
 export type ScanRecommendationPick = {
   title: string;
   author?: string;
+  language?: string;
   reason: string;
   rank?: number;
   crop_url?: string;

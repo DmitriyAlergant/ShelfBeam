@@ -365,6 +365,11 @@ export default function ScanDetailScreen() {
                     {pick.author && (
                       <Text style={styles.bookAuthor} numberOfLines={1}>{pick.author}</Text>
                     )}
+                    {pick.language && (
+                      <View style={styles.langBadge}>
+                        <Text style={styles.langText}>{pick.language.toUpperCase()}</Text>
+                      </View>
+                    )}
                     {pick.reason && (
                       <Text style={styles.pickReason} numberOfLines={2}>{pick.reason}</Text>
                     )}
@@ -477,6 +482,11 @@ export default function ScanDetailScreen() {
                 <Text style={styles.modalTitle}>{selectedPick.title}</Text>
                 {selectedPick.author && (
                   <Text style={styles.modalAuthor}>{selectedPick.author}</Text>
+                )}
+                {selectedPick.language && (
+                  <View style={styles.modalLangBadge}>
+                    <Text style={styles.langText}>{selectedPick.language.toUpperCase()}</Text>
+                  </View>
                 )}
 
                 {/* Reason */}
@@ -714,6 +724,19 @@ const styles = StyleSheet.create({
     color: colors.inkMedium,
     marginTop: 2,
   },
+  langBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  langText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+  },
   pickReason: {
     fontSize: 13,
     fontFamily: fonts.body,
@@ -837,6 +860,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     color: colors.inkMedium,
     textAlign: "center",
+    marginBottom: spacing.md,
+  },
+  modalLangBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     marginBottom: spacing.md,
   },
   modalReasonCard: {

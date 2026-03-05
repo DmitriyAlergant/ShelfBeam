@@ -59,6 +59,7 @@ def run_full_pipeline(
             "index": idx,
             "title": norm.get("title"),
             "author": norm.get("author"),
+            "language": norm.get("language"),
             "confidence": det["confidence"],
             "obb": det["obb"],
             "crop_b64": det["crop_b64"],
@@ -79,6 +80,7 @@ def run_full_pipeline(
                 "rank": pick.get("rank"),
                 "title": book["title"],
                 "author": book.get("author"),
+                "language": book.get("language"),
                 "reason": pick.get("comment", ""),
                 "obb": book["obb"],
             })
