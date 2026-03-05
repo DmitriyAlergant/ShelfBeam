@@ -175,6 +175,10 @@ export type ScanRecommendationPick = {
   title: string;
   author?: string;
   reason: string;
+  rank?: number;
+  crop_url?: string;
+  book_id?: string;
+  obb?: number[][];
 };
 
 export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };

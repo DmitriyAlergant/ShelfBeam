@@ -55,6 +55,15 @@ ADMIN_HEADERS = {
     "Content-Type": "application/json",
 }
 
+
+def admin_headers_for_user(user_id: str) -> dict:
+    """Build admin headers impersonating a specific user."""
+    return {
+        "X-Admin-Key": ADMIN_API_KEY,
+        "X-Admin-User-Id": user_id,
+        "Content-Type": "application/json",
+    }
+
 STAGE_TO_STATUS = {
     "detect": "detecting",
     "ocr": "reading",
@@ -70,8 +79,11 @@ def get_pending_scans():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT s.id, s.image_url, s.reader_comment, s.reader_profile_id
+                SELECT s.id, s.image_url, s.reader_comment, s.reader_profile_id,
+                       au.clerk_id
                 FROM scan s
+                LEFT JOIN reader_profile rp ON rp.id = s.reader_profile_id
+                LEFT JOIN app_user au ON au.id = rp.user_id
                 WHERE s.processing_status = 'pending'
                   AND s.processing_task_id IS NULL
                 ORDER BY s.created_at ASC
@@ -85,6 +97,7 @@ def get_pending_scans():
                     "image_url": row[1],
                     "reader_comment": row[2],
                     "reader_profile_id": str(row[3]) if row[3] else None,
+                    "clerk_id": str(row[4]) if row[4] else None,
                 }
                 for row in rows
             ]
@@ -154,9 +167,9 @@ class TaskOrphanedError(Exception):
     """Raised when the backend returns 409 — this task has been superseded."""
 
 
-def sync_api_get(path: str) -> dict:
+def sync_api_get(path: str, headers: dict | None = None) -> dict:
     """Synchronous GET request to the backend API with admin auth."""
-    resp = httpx.get(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, timeout=30)
+    resp = httpx.get(f"{API_BASE_URL}{path}", headers=headers or ADMIN_HEADERS, timeout=30)
     resp.raise_for_status()
     return resp.json()
 
@@ -177,10 +190,11 @@ def sync_api_patch(path: str, body: dict) -> dict:
     return resp.json()
 
 
-def get_reader_context(profile_id: str) -> str:
+def get_reader_context(profile_id: str, user_id: str) -> str:
     """Fetch reader profile and history to provide context for recommendations."""
-    profile = sync_api_get(f"/api/profiles/{profile_id}")
-    history = sync_api_get(f"/api/profiles/{profile_id}/history")
+    headers = admin_headers_for_user(user_id)
+    profile = sync_api_get(f"/api/profiles/{profile_id}", headers=headers)
+    history = sync_api_get(f"/api/profiles/{profile_id}/history", headers=headers)
 
     parts = []
     if profile.get("name"):
@@ -236,6 +250,7 @@ def _process_scan_sync(scan_row: dict, task_id: str):
     image_url = scan_row["image_url"]
     reader_comment = scan_row["reader_comment"]
     profile_id = scan_row["reader_profile_id"]
+    clerk_id = scan_row["clerk_id"]
 
     log.info("Processing scan %s (task %s, image: %s)", scan_id, task_id, image_url)
 
@@ -256,8 +271,8 @@ def _process_scan_sync(scan_row: dict, task_id: str):
 
     # Get reader context for personalized recommendations
     reader_context = "No reader profile available."
-    if profile_id:
-        reader_context = get_reader_context(profile_id)
+    if profile_id and clerk_id:
+        reader_context = get_reader_context(profile_id, clerk_id)
 
     # Run the full 4-stage pipeline
     result = run_full_pipeline(
@@ -269,36 +284,35 @@ def _process_scan_sync(scan_row: dict, task_id: str):
     )
 
     detected_books = result.get("detected_books", [])
-    log.info("Pipeline returned %d detected books", len(detected_books))
+    recommendations = result.get("recommendations", [])
+    recommendation_summary = result.get("recommendation_summary", "")
 
-    # Upload crops to S3
-    for i, detected in enumerate(detected_books):
-        crop_b64 = detected.pop("crop_b64", None)
+    # Build crop lookup from detected_books (index -> crop_b64)
+    crop_by_index = {}
+    for det in detected_books:
+        crop_b64 = det.get("crop_b64")
         if crop_b64:
-            key = f"crops/{scan_id}/{i}.jpg"
+            crop_by_index[det["index"]] = crop_b64
+
+    # Upload crops to S3 and upsert books — only for recommendations
+    for rec in recommendations:
+        idx = rec["book_index"]
+        crop_b64 = crop_by_index.get(idx)
+        if crop_b64:
+            key = f"crops/{scan_id}/{idx}.jpg"
             _s3_client.put_object(
                 Bucket=S3_BUCKET,
                 Key=key,
                 Body=base64.b64decode(crop_b64),
                 ContentType="image/jpeg",
             )
-            detected_books[i]["crop_url"] = f"/uploads/{key}"
-    log.info("Uploaded %d crops to S3", sum(1 for d in detected_books if d.get("crop_url")))
+            rec["crop_url"] = f"/uploads/{key}"
 
-    # Upsert each detected book into the books table
-    for i, detected in enumerate(detected_books):
-        if not detected.get("title"):
-            continue
-        book_data = {
-            "title": detected["title"],
-            "author": detected.get("author"),
-        }
-        book_record = sync_api_post("/api/books", book_data)
-        detected_books[i]["book_id"] = book_record["id"]
-
-    # Final update — set detected_books, recommendation, summary, and status to 'done'
-    recommendations = result.get("recommendations", [])
-    recommendation_summary = result.get("recommendation_summary", "")
+        book_record = sync_api_post("/api/books", {
+            "title": rec["title"],
+            "author": rec.get("author"),
+        })
+        rec["book_id"] = book_record["id"]
 
     log.info("Recommendations (%d):", len(recommendations))
     for rec in recommendations:
@@ -310,7 +324,6 @@ def _process_scan_sync(scan_row: dict, task_id: str):
 
     patch_scan({
         "processing_status": "done",
-        "detected_books": detected_books,
         "recommendation": recommendations,
         "recommendation_summary": recommendation_summary,
     })
