@@ -60,7 +60,24 @@ railway variables set --service worker \
   ADMIN_API_KEY='<same-as-backend>' \
   TEST_USER_ID='<same-as-backend>' \
   OPENAI_API_KEY='...' \
-  OPENAI_BASE_URL='...'
+  OPENAI_BASE_URL='...' \
+  ROBOFLOW_API_KEY='...' \
+  ROBOFLOW_MODEL_ID='fyp-obb-mnsh3/9' \
+  ROBOFLOW_API_URL='https://serverless.roboflow.com' \
+  ROBOFLOW_TIMEOUT_SECONDS='15' \
+  ROBOFLOW_RETRIES='4' \
+  OCR_BACKEND='hf' \
+  OCR_LLM_MODEL='gemini-3.1-flash-lite-preview' \
+  OCR_LANGUAGES='en,es' \
+  HUGGINGFACE_API_KEY='...' \
+  HF_ENDPOINT_URL='...' \
+  OCR_NORMALIZE_MODEL='gemini-3-flash-preview' \
+  RECOMMENDATION_MODEL='gpt-5.2' \
+  MAX_CONCURRENT_SCANS='3' \
+  S3_ENDPOINT='${{Bucket.ENDPOINT}}' \
+  S3_BUCKET='${{Bucket.BUCKET}}' \
+  S3_ACCESS_KEY='${{Bucket.ACCESS_KEY_ID}}' \
+  S3_SECRET_KEY='${{Bucket.SECRET_ACCESS_KEY}}'
 ```
 
 The worker talks to app-backend via Railway's internal network (`*.railway.internal`).
@@ -87,7 +104,7 @@ eas channel:create preview
 
 ```bash
 cd app-mobile
-EXPO_PUBLIC_API_URL=https://app-backend-production-XXXX.up.railway.app \
+EXPO_PUBLIC_API_URL=https://shelfbeam-api.up.railway.app \
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_... \
 EXPO_PUBLIC_DEV_AUTH_BYPASS=false \
   npx eas update --branch preview --non-interactive --message "initial"
@@ -112,7 +129,7 @@ Required GitHub secrets/variables:
 
 ```bash
 gh secret set EXPO_TOKEN --body "<token-from-expo.dev-account-settings>"
-gh variable set EXPO_PUBLIC_API_URL --body "https://app-backend-production-XXXX.up.railway.app"
+gh variable set EXPO_PUBLIC_API_URL --body "https://shelfbeam-api.up.railway.app"
 gh variable set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --body "pk_test_..."
 ```
 

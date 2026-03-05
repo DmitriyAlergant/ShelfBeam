@@ -25,7 +25,7 @@ export default function ProfilePickerScreen() {
   useUserSync();
 
   const { getToken } = useAppAuth();
-  const { appUserId, activeProfile, setActiveProfile } = useAppContext();
+  const { appUserId, activeProfile, setActiveProfile, hasSeenWelcome } = useAppContext();
   const router = useRouter();
 
   const [profiles, setProfiles] = useState<ProfileData[]>([]);
@@ -50,6 +50,12 @@ export default function ProfilePickerScreen() {
     }
   }, [appUserId, fetchProfiles]);
 
+  useEffect(() => {
+    if (!loading && profiles.length === 0 && !hasSeenWelcome) {
+      router.replace("/(main)/welcome");
+    }
+  }, [loading, profiles.length, hasSeenWelcome, router]);
+
   const handleSelect = (profile: ProfileData) => {
     setActiveProfile(profile);
     router.replace("/(main)/(tabs)");
@@ -72,6 +78,8 @@ export default function ProfilePickerScreen() {
   const handleProfileCreated = (newProfile: ProfileData) => {
     setProfiles((prev) => [...prev, newProfile]);
     setShowAddModal(false);
+    setActiveProfile(newProfile);
+    router.replace("/(main)/(tabs)/profile");
   };
 
   return (

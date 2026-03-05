@@ -1,715 +1,375 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
+import { useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
-import { updateProfile } from "../../../lib/api";
-import { DiceBearAvatar } from "../../../components/DiceBearAvatar";
-import { AvatarPicker } from "../../../components/AvatarPicker";
+import { type HistoryWithBook } from "../../../lib/api";
+import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
+import { STATUS_LABELS } from "../../../lib/reading-status";
+import SwipeToDelete from "../../../components/SwipeToDelete";
+import ConfirmModal from "../../../components/ConfirmModal";
 
-const GENDER_OPTIONS = [
-  { key: "M", label: "Boy" },
-  { key: "F", label: "Girl" },
-  { key: "", label: "Skip" },
-];
+const SOURCE_LABELS: Record<string, string> = {
+  scan: "Picked from scanned shelf",
+};
 
-const LANGUAGE_OPTIONS = [
-  "English",
-  "Spanish",
-  "French",
-  "Mandarin",
-  "Russian",
-  "Arabic",
-  "Hindi",
-  "Portuguese",
-  "Japanese",
-  "Korean",
-];
-
-const INTEREST_SUGGESTIONS = [
-  "Dinosaurs",
-  "Space",
-  "Magic",
-  "Animals",
-  "Sports",
-  "Science",
-  "Art",
-  "Music",
-  "Adventure",
-  "Mystery",
-  "Funny",
-  "Robots",
-  "Pirates",
-  "Princesses",
-  "Superheroes",
-  "History",
-];
-
-export default function ProfileScreen() {
+export default function MyBooks() {
+  const router = useRouter();
   const { getToken } = useAppAuth();
-  const { activeProfile, setActiveProfile, setPendingSave } = useAppContext();
+  const { activeProfile } = useAppContext();
+  const entries = useHistoryStore((s) => s.entries);
+  const loading = useHistoryStore((s) => s.loading);
+  const storeFetchHistory = useHistoryStore((s) => s.fetchHistory);
+  const storeRemoveEntry = useHistoryStore((s) => s.removeEntry);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
-  const [name, setName] = useState("");
-  const [avatarKey, setAvatarKey] = useState("");
-  const [age, setAge] = useState<number | null>(null);
-  const [grade, setGrade] = useState<number | null>(null);
-  const [gender, setGender] = useState("");
-  const [languages, setLanguages] = useState<string[]>([]);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [newInterest, setNewInterest] = useState("");
-  const [newLanguage, setNewLanguage] = useState("");
-  const [showCustomInterest, setShowCustomInterest] = useState(false);
-  const [showCustomLanguage, setShowCustomLanguage] = useState(false);
-
-  // Initialize from active profile (only on first load / profile switch)
-  const [initializedProfileId, setInitializedProfileId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!activeProfile || activeProfile.id === initializedProfileId) return;
-    setInitializedProfileId(activeProfile.id);
-    setName(activeProfile.name || "");
-    setAvatarKey(activeProfile.avatarKey || activeProfile.name);
-    setAge(activeProfile.age ?? null);
-    setGrade(activeProfile.grade ?? null);
-    setGender(activeProfile.gender || "");
-    setLanguages(activeProfile.languages || []);
-    setInterests(activeProfile.interests || []);
-    setNotes(activeProfile.notes || "");
-  }, [activeProfile, initializedProfileId]);
-
-  // Dirty tracking — compare local state to activeProfile
-  const isDirty = useMemo(() => {
-    if (!activeProfile) return false;
-    const p = activeProfile;
-    if ((name || "") !== (p.name || "")) return true;
-    if ((avatarKey || "") !== (p.avatarKey || p.name || "")) return true;
-    if ((age ?? null) !== (p.age ?? null)) return true;
-    if ((grade ?? null) !== (p.grade ?? null)) return true;
-    if ((gender || "") !== (p.gender || "")) return true;
-    if (JSON.stringify(languages) !== JSON.stringify(p.languages || [])) return true;
-    if (JSON.stringify(interests) !== JSON.stringify(p.interests || [])) return true;
-    if ((notes || "") !== (p.notes || "")) return true;
-    return false;
-  }, [activeProfile, name, avatarKey, age, grade, gender, languages, interests, notes]);
-
-  const saveAll = useCallback(async () => {
+  const fetchHistory = useCallback(async () => {
     if (!activeProfile) return;
     const token = await getToken();
     if (!token) return;
-    setSaving(true);
-    try {
-      const updated = await updateProfile(token, activeProfile.id, {
-        name: name.trim(),
-        avatar_key: avatarKey,
-        age: age ?? undefined,
-        grade: grade ?? undefined,
-        gender: gender || null,
-        languages,
-        interests,
-        notes: notes.trim(),
-      } as Parameters<typeof updateProfile>[2]);
-      setActiveProfile(updated);
-      // Re-sync local state with normalized values so isDirty resets
-      setName(updated.name || "");
-      setAvatarKey(updated.avatarKey || updated.name || "");
-      setAge(updated.age ?? null);
-      setGrade(updated.grade ?? null);
-      setGender(updated.gender || "");
-      setLanguages(updated.languages || []);
-      setInterests(updated.interests || []);
-      setNotes(updated.notes || "");
-    } finally {
-      setSaving(false);
-    }
-  }, [activeProfile, getToken, setActiveProfile, name, avatarKey, age, grade, gender, languages, interests, notes]);
+    await storeFetchHistory(token, activeProfile.id);
+  }, [activeProfile, getToken, storeFetchHistory]);
 
-  // Register save action in top bar via context
-  const saveAllRef = useRef(saveAll);
-  saveAllRef.current = saveAll;
   useEffect(() => {
-    if (isDirty) {
-      setPendingSave(() => saveAllRef.current());
-    } else {
-      setPendingSave(null);
+    useHistoryStore.getState().reset();
+    fetchHistory();
+  }, [fetchHistory]);
+
+  // Re-fetch when screen regains focus (e.g. returning from book-detail)
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        fetchHistory();
+      }
+    }, [fetchHistory, loading])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHistory();
+    setRefreshing(false);
+  }, [fetchHistory]);
+
+  const handleDeleteCancel = useCallback(() => {
+    if (deletingEntryId) {
+      swipeableRefs.current.get(deletingEntryId)?.close();
     }
-    return () => setPendingSave(null);
-  }, [isDirty, setPendingSave]);
+    setDeletingEntryId(null);
+  }, [deletingEntryId]);
 
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingEntryId || !activeProfile) return;
+    setDeleteLoading(true);
+    const token = await getToken();
+    if (!token) return;
+    await storeRemoveEntry(token, activeProfile.id, deletingEntryId);
+    setDeleteLoading(false);
+    setDeletingEntryId(null);
+  }, [deletingEntryId, activeProfile, getToken, storeRemoveEntry]);
 
-  const handleAvatarSelect = useCallback(
-    (seed: string) => {
-      setAvatarKey(seed);
-      setShowAvatarPicker(false);
-    },
-    []
-  );
-
-  const handleGenderSelect = useCallback(
-    (g: string) => {
-      setGender(g);
-    },
-    []
-  );
-
-  const toggleLanguage = useCallback(
-    (lang: string) => {
-      setLanguages((prev) =>
-        prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
-      );
-    },
-    []
-  );
-
-  const toggleInterest = useCallback(
-    (interest: string) => {
-      setInterests((prev) =>
-        prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
-      );
-    },
-    []
-  );
-
-  const addCustomInterest = useCallback(() => {
-    const trimmed = newInterest.trim();
-    if (!trimmed || interests.includes(trimmed)) {
-      setNewInterest("");
-      setShowCustomInterest(false);
-      return;
-    }
-    setInterests([...interests, trimmed]);
-    setNewInterest("");
-    setShowCustomInterest(false);
-  }, [newInterest, interests]);
-
-  const addCustomLanguage = useCallback(() => {
-    const trimmed = newLanguage.trim();
-    if (!trimmed || languages.includes(trimmed)) {
-      setNewLanguage("");
-      setShowCustomLanguage(false);
-      return;
-    }
-    setLanguages([...languages, trimmed]);
-    setNewLanguage("");
-    setShowCustomLanguage(false);
-  }, [newLanguage, languages]);
-
-  if (!activeProfile) return null;
-
-  return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.headerRow}>
-          <Text style={styles.header}>Reader Profile</Text>
-        </View>
-
-        {/* Avatar section */}
-        <View style={styles.avatarSection}>
+  const renderBookCard = useCallback(
+    ({ item }: { item: HistoryWithBook }) => {
+      const { entry, book } = item;
+      if (!book) return null;
+      return (
+        <SwipeToDelete
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(entry.id, ref);
+            else swipeableRefs.current.delete(entry.id);
+          }}
+          onDelete={() => setDeletingEntryId(entry.id)}
+        >
           <TouchableOpacity
-            onPress={() => setShowAvatarPicker(!showAvatarPicker)}
+            style={styles.bookCard}
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push(
+                `/(main)/book-detail?entryId=${entry.id}&bookId=${book.id}`
+              )
+            }
           >
-            <DiceBearAvatar seed={avatarKey} size={96} active />
-            <View style={styles.avatarEditBadge}>
-              <Text style={styles.avatarEditText}>✏️</Text>
+            <View style={styles.bookCoverPlaceholder}>
+              <Text style={styles.bookCoverEmoji}>📕</Text>
+            </View>
+            <View style={styles.bookInfo}>
+              <View style={styles.titleRow}>
+                <Text style={styles.bookTitle} numberOfLines={2}>
+                  {book.title}
+                </Text>
+                {entry.reactions && entry.reactions.length > 0 && (
+                  <Text style={styles.reactions}>
+                    {entry.reactions.join(" ")}
+                  </Text>
+                )}
+              </View>
+              {book.author && (
+                <Text style={styles.bookAuthor} numberOfLines={1}>
+                  {book.author}
+                </Text>
+              )}
+              <View style={styles.bookMeta}>
+                <View style={[
+                  styles.statusBadge,
+                  entry.status === "reading" && styles.statusBadgeReading,
+                  entry.status === "finished" && styles.statusBadgeFinished,
+                  entry.status === "abandoned" && styles.statusBadgeAbandoned,
+                ]}>
+                  <Text style={styles.statusBadgeText}>
+                    {STATUS_LABELS[entry.status] || entry.status}
+                  </Text>
+                </View>
+                {book.isSeries && (
+                  <View style={styles.seriesBadge}>
+                    <Text style={styles.seriesText}>Series</Text>
+                  </View>
+                )}
+                {SOURCE_LABELS[entry.source] && (
+                  <View style={styles.sourceBadge}>
+                    <Text style={styles.sourceText}>
+                      {SOURCE_LABELS[entry.source]}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </TouchableOpacity>
-        </View>
+        </SwipeToDelete>
+      );
+    },
+    [router]
+  );
 
-        {showAvatarPicker && (
-          <View style={styles.pickerContainer}>
-            <AvatarPicker
-              value={avatarKey}
-              onSelect={handleAvatarSelect}
-              avatarSize={56}
-              gender={gender}
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.beamYellow} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>Your Reading History</Text>
+
+      <TouchableOpacity
+        style={styles.ctaButton}
+        activeOpacity={0.85}
+        onPress={() => router.push("/(main)/reading-log-entry")}
+      >
+        <Text style={styles.ctaEmoji}>✏️</Text>
+        <Text style={styles.ctaText}>Tell us what you read already</Text>
+      </TouchableOpacity>
+
+      {entries.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📚</Text>
+          <Text style={styles.emptyTitle}>No books yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Scan a shelf to discover books, or tell us what you&apos;ve been reading!
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={entries}
+          keyExtractor={(item) => item.entry.id}
+          renderItem={renderBookCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.beamYellow}
             />
-          </View>
-        )}
+          }
+        />
+      )}
 
-        {/* Name */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.textInput}
-            value={name}
-            onChangeText={setName}
-            placeholder="Reader's name"
-            placeholderTextColor={colors.inkLight}
-            returnKeyType="done"
-          />
-        </View>
-
-        {/* Age & Grade */}
-        <View style={styles.ageGradeRow}>
-          <View style={styles.ageGradeCell}>
-            <Text style={styles.label}>Age</Text>
-            <View style={styles.stepperRow}>
-              <TouchableOpacity
-                style={[styles.stepperBtn, age !== null && age <= 3 && styles.stepperBtnDisabled]}
-                onPress={() => {
-                  const cur = age ?? 8;
-                  const next = cur === 99 ? 18 : Math.max(3, cur - 1);
-                  setAge(next);
-                  if (grade === null) {
-                    setGrade(next >= 18 ? 99 : Math.max(0, Math.min(12, next - 5)));
-                  } else if (cur === 99) {
-                    setGrade(12);
-                  } else if (grade === 99) {
-                    // keep N/A
-                  } else if (grade > 0) {
-                    setGrade(grade - 1);
-                  }
-                }}
-                disabled={age !== null && age <= 3}
-              >
-                <Text style={styles.stepperBtnText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.stepperValue}>{age === null ? "-" : age === 99 ? "Adult" : age}</Text>
-              <TouchableOpacity
-                style={[styles.stepperBtn, age !== null && age >= 99 && styles.stepperBtnDisabled]}
-                onPress={() => {
-                  const cur = age ?? 8;
-                  const next = cur >= 18 ? 99 : cur + 1;
-                  setAge(next);
-                  if (grade === null) {
-                    setGrade(next === 99 ? 99 : Math.max(0, Math.min(12, next - 5)));
-                  } else if (next === 99) {
-                    setGrade(99);
-                  } else if (grade < 12) {
-                    setGrade(grade + 1);
-                  }
-                }}
-                disabled={age !== null && age >= 99}
-              >
-                <Text style={styles.stepperBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.ageGradeCell}>
-            <Text style={styles.label}>Grade</Text>
-            <View style={styles.stepperRow}>
-              <TouchableOpacity
-                style={[styles.stepperBtn, grade !== null && grade <= 0 && styles.stepperBtnDisabled]}
-                onPress={() => {
-                  const cur = grade ?? 3;
-                  setGrade(cur === 99 ? 12 : Math.max(0, cur - 1));
-                }}
-                disabled={grade !== null && grade <= 0}
-              >
-                <Text style={styles.stepperBtnText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.stepperValue}>{grade === null ? "-" : grade === 0 ? "K" : grade === 99 ? "N/A" : grade}</Text>
-              <TouchableOpacity
-                style={[styles.stepperBtn, grade !== null && grade >= 99 && styles.stepperBtnDisabled]}
-                onPress={() => {
-                  const cur = grade ?? 3;
-                  setGrade(cur >= 12 ? 99 : cur + 1);
-                }}
-                disabled={grade !== null && grade >= 99}
-              >
-                <Text style={styles.stepperBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Gender */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Gender</Text>
-          <View style={styles.chipRow}>
-            {GENDER_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.key}
-                style={[
-                  styles.selectChip,
-                  gender === opt.key && styles.selectChipActive,
-                ]}
-                onPress={() => handleGenderSelect(opt.key)}
-              >
-                <Text
-                  style={[
-                    styles.selectChipText,
-                    gender === opt.key && styles.selectChipTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Languages */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Languages</Text>
-          <View style={styles.chipRow}>
-            {LANGUAGE_OPTIONS.map((lang) => {
-              const isSelected = languages.includes(lang);
-              return (
-                <TouchableOpacity
-                  key={lang}
-                  style={[
-                    styles.multiChip,
-                    isSelected && styles.multiChipActive,
-                  ]}
-                  onPress={() => toggleLanguage(lang)}
-                >
-                  <Text
-                    style={[
-                      styles.multiChipText,
-                      isSelected && styles.multiChipTextActive,
-                    ]}
-                  >
-                    {lang}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {languages
-              .filter((l) => !LANGUAGE_OPTIONS.includes(l))
-              .map((custom) => (
-                <TouchableOpacity
-                  key={custom}
-                  style={[styles.multiChip, styles.multiChipActive]}
-                  onPress={() => toggleLanguage(custom)}
-                >
-                  <Text style={[styles.multiChipText, styles.multiChipTextActive]}>
-                    {custom} ✕
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            {showCustomLanguage ? (
-              <View style={styles.inlineInputWrap}>
-                <TextInput
-                  style={styles.inlineInput}
-                  value={newLanguage}
-                  onChangeText={setNewLanguage}
-                  placeholder="Type..."
-                  placeholderTextColor={colors.inkLight}
-                  onSubmitEditing={addCustomLanguage}
-                  onBlur={() => { if (!newLanguage.trim()) setShowCustomLanguage(false); }}
-                  autoFocus
-                  returnKeyType="done"
-                />
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.addChip}
-                onPress={() => setShowCustomLanguage(true)}
-              >
-                <Text style={styles.addChipText}>+ Add</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Interests */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Interests</Text>
-          <View style={styles.chipRow}>
-            {INTEREST_SUGGESTIONS.map((interest) => {
-              const isSelected = interests.includes(interest);
-              return (
-                <TouchableOpacity
-                  key={interest}
-                  style={[
-                    styles.interestChip,
-                    isSelected && styles.interestChipActive,
-                  ]}
-                  onPress={() => toggleInterest(interest)}
-                >
-                  <Text
-                    style={[
-                      styles.interestChipText,
-                      isSelected && styles.interestChipTextActive,
-                    ]}
-                  >
-                    {interest}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {interests
-              .filter((i) => !INTEREST_SUGGESTIONS.includes(i))
-              .map((custom) => (
-                <TouchableOpacity
-                  key={custom}
-                  style={[styles.interestChip, styles.interestChipActive]}
-                  onPress={() => toggleInterest(custom)}
-                >
-                  <Text
-                    style={[
-                      styles.interestChipText,
-                      styles.interestChipTextActive,
-                    ]}
-                  >
-                    {custom} ✕
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            {showCustomInterest ? (
-              <View style={styles.inlineInputWrap}>
-                <TextInput
-                  style={styles.inlineInput}
-                  value={newInterest}
-                  onChangeText={setNewInterest}
-                  placeholder="Type..."
-                  placeholderTextColor={colors.inkLight}
-                  onSubmitEditing={addCustomInterest}
-                  onBlur={() => { if (!newInterest.trim()) setShowCustomInterest(false); }}
-                  autoFocus
-                  returnKeyType="done"
-                />
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.addChip}
-                onPress={() => setShowCustomInterest(true)}
-              >
-                <Text style={styles.addChipText}>+ Add</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Notes */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Notes</Text>
-          <TextInput
-            style={[styles.textInput, styles.notesInput]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Anything else about me as a reader..."
-            placeholderTextColor={colors.inkLight}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
-
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <ConfirmModal
+        visible={deletingEntryId !== null}
+        title="Remove Book?"
+        message="This will remove the book from your reading history."
+        confirmLabel="Remove"
+        destructive
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.bgCream,
-  },
   container: {
     flex: 1,
     backgroundColor: colors.bgCream,
-  },
-  scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl * 2,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  centerContainer: {
+    flex: 1,
+    backgroundColor: colors.bgCream,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: spacing.lg,
   },
   header: {
     fontSize: 28,
     fontFamily: fonts.heading,
     color: colors.inkDark,
-  },
-  avatarSection: {
-    alignItems: "center",
     marginBottom: spacing.lg,
   },
-  avatarEditBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: -4,
-    backgroundColor: colors.bgWarm,
-    borderRadius: 14,
-    width: 28,
-    height: 28,
-    justifyContent: "center",
+  ctaButton: {
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
-    ...shadows.card,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.md,
+    ...shadows.button,
+    marginBottom: spacing.lg,
   },
-  avatarEditText: {
-    fontSize: 14,
+  ctaEmoji: {
+    fontSize: 22,
   },
-  pickerContainer: {
+  ctaText: {
+    color: colors.inkDark,
+    fontSize: 17,
+    fontFamily: fonts.heading,
+  },
+  listContent: {
+    paddingBottom: spacing.xxl,
+  },
+  bookCard: {
     backgroundColor: colors.bgWarm,
     borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.sm,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
-  field: {
-    marginBottom: spacing.lg,
+  bookCoverPlaceholder: {
+    width: 40,
+    height: 54,
+    borderRadius: radius.sm,
+    backgroundColor: colors.beamYellowLight,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  label: {
-    fontSize: 12,
-    fontFamily: fonts.badge,
-    color: colors.inkMedium,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+  bookCoverEmoji: {
+    fontSize: 20,
   },
-  textInput: {
-    backgroundColor: colors.bgWarm,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    fontFamily: fonts.body,
-    color: colors.inkDark,
+  bookInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
   },
-  notesInput: {
-    minHeight: 100,
-    lineHeight: 22,
-  },
-  ageGradeRow: {
+  titleRow: {
     flexDirection: "row",
-    gap: spacing.lg,
-    marginBottom: spacing.lg,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
-  ageGradeCell: {
+  bookTitle: {
+    fontSize: 15,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkDark,
     flex: 1,
   },
-  stepperRow: {
+  bookAuthor: {
+    fontSize: 13,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    marginTop: 2,
+  },
+  bookMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
-  stepperBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgWarm,
-    justifyContent: "center",
-    alignItems: "center",
+  statusBadge: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
   },
-  stepperBtnDisabled: {
-    opacity: 0.3,
+  statusBadgeReading: {
+    backgroundColor: colors.beamYellowLight,
   },
-  stepperBtnText: {
+  statusBadgeFinished: {
+    backgroundColor: colors.tealLight,
+  },
+  statusBadgeAbandoned: {
+    backgroundColor: "rgba(255,107,107,0.12)",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.inkDark,
+  },
+  sourceBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  sourceText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+  },
+  reactions: {
     fontSize: 18,
-    fontFamily: fonts.body,
-    color: colors.inkMedium,
   },
-  stepperValue: {
-    fontSize: 22,
-    fontFamily: fonts.body,
-    color: colors.inkDark,
-    minWidth: 32,
-    textAlign: "center",
+  seriesBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
   },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
+  seriesText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
-  selectChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgWarm,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  selectChipActive: {
-    borderColor: colors.beamYellow,
-    backgroundColor: colors.beamYellowLight,
-  },
-  selectChipText: {
-    fontSize: 14,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMedium,
-  },
-  selectChipTextActive: {
-    color: colors.inkDark,
-  },
-  multiChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.bgWarm,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  multiChipActive: {
-    backgroundColor: colors.beamYellowLight,
-    borderColor: colors.beamYellow,
-  },
-  multiChipText: {
-    fontSize: 13,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMedium,
-  },
-  multiChipTextActive: {
-    color: colors.shelfBrown,
-  },
-  interestChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.bgWarm,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  interestChipActive: {
-    backgroundColor: colors.beamYellowLight,
-    borderColor: colors.beamYellow,
-  },
-  interestChipText: {
-    fontSize: 13,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMedium,
-  },
-  interestChipTextActive: {
-    color: colors.shelfBrown,
-  },
-  addChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.bgWarm,
-  },
-  addChipText: {
-    fontSize: 13,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMedium,
-  },
-  inlineInputWrap: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.beamYellow,
-    backgroundColor: colors.beamYellowLight,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    minWidth: 80,
+  emptyState: {
+    flex: 1,
     justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 80,
   },
-  inlineInput: {
-    fontSize: 13,
-    fontFamily: fonts.body,
+  emptyEmoji: {
+    fontSize: 56,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: fonts.heading,
     color: colors.inkDark,
-    padding: 0,
-    margin: 0,
-    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    paddingHorizontal: 40,
+    lineHeight: 22,
   },
 });

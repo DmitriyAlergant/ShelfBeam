@@ -88,9 +88,14 @@ services:
       ADMIN_API_KEY: ${ADMIN_API_KEY}
       TEST_USER_ID: ${TEST_USER_ID}
       ROBOFLOW_API_KEY: ${ROBOFLOW_API_KEY}
+      ROBOFLOW_MODEL_ID: ${ROBOFLOW_MODEL_ID}
+      ROBOFLOW_API_URL: ${ROBOFLOW_API_URL}
+      ROBOFLOW_TIMEOUT_SECONDS: ${ROBOFLOW_TIMEOUT_SECONDS}
+      ROBOFLOW_RETRIES: ${ROBOFLOW_RETRIES}
       OCR_BACKEND: ${OCR_BACKEND}
       OCR_LLM_MODEL: ${OCR_LLM_MODEL}
-      OCR_NORMALIZE_MODEL: ${OCR_NORMALIZE_MODEL}
+      NORMALIZATION_MODEL: ${NORMALIZATION_MODEL}
+      NORMALIZATION_BATCH_SIZE: ${NORMALIZATION_BATCH_SIZE}
       RECOMMENDATION_MODEL: ${RECOMMENDATION_MODEL}
       MLX_OCR_URL: ${MLX_OCR_URL}
       HF_ENDPOINT_URL: ${HF_ENDPOINT_URL}
@@ -107,6 +112,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  landing:
+    build:
+      context: ./landing
+      dockerfile: Dockerfile
+    ports:
+      - "4321:4321"
+    environment:
+      LANDING_IOS_QR_URL: ${LANDING_IOS_QR_URL}
+      LANDING_ANDROID_QR_URL: ${LANDING_ANDROID_QR_URL}
+    volumes:
+      - ./landing/src:/app/src
+      - ./landing/public:/app/public
+      - ./landing/astro.config.mjs:/app/astro.config.mjs
 
 volumes:
   pgdata:

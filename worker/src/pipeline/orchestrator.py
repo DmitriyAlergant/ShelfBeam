@@ -1,6 +1,7 @@
 """Orchestrator: chains all 4 pipeline stages into a single run_full_pipeline call."""
 
 import logging
+from typing import Callable
 
 from .stage_detect import detect_books
 from .stage_normalize import normalize_books
@@ -10,6 +11,10 @@ from .stage_recommend import recommend_books
 log = logging.getLogger("pipeline.orchestrator")
 
 
+class ScanCancelledException(Exception):
+    """Raised when a scan is cancelled between pipeline stages."""
+
+
 def run_full_pipeline(
     image_source: str,
     reader_context: str,
@@ -17,6 +22,7 @@ def run_full_pipeline(
     is_base64: bool = False,
     status_callback=None,
     scan_id: str | None = None,
+    cancellation_check: Callable[[], bool] | None = None,
 ) -> dict:
     """Run the full 4-stage pipeline: detect -> OCR -> normalize -> recommend.
 
@@ -27,6 +33,10 @@ def run_full_pipeline(
         log.info("Stage: %s", stage_name)
         if status_callback:
             status_callback(stage_name)
+
+    def _check_cancel():
+        if cancellation_check and cancellation_check():
+            raise ScanCancelledException()
 
     # Stage 1: Detection
     _notify("detect")
@@ -39,9 +49,13 @@ def run_full_pipeline(
             "recommendation_summary": "I couldn't detect any books on this shelf. Try taking a clearer photo!",
         }
 
+    _check_cancel()
+
     # Stage 2: OCR
     _notify("ocr")
     ocr_results = ocr_crops(detections)
+
+    _check_cancel()
 
     # Stage 3: Normalize
     _notify("normalize")
@@ -50,20 +64,24 @@ def run_full_pipeline(
     for n in normalized:
         log.info("  [%d] %s — %s", n["index"], n.get("title"), n.get("author"))
 
-    # Build detected_books list combining detection + normalization data
+    # Build detected_books list combining detection + normalization data.
+    # Normalized results may have more entries than detections (splits) or fewer (dedup).
+    # Use detection_index to look up crop/OBB from the original detection.
     detected_books = []
-    norm_by_index = {n["index"]: n for n in normalized}
-    for det in detections:
-        idx = det["index"]
-        norm = norm_by_index.get(idx, {})
+    det_by_index = {d["index"]: d for d in detections}
+    for norm in normalized:
+        det_idx = norm.get("detection_index", norm["index"])
+        det = det_by_index.get(det_idx, {})
         detected_books.append({
-            "index": idx,
+            "index": norm["index"],
             "title": norm.get("title"),
             "author": norm.get("author"),
-            "confidence": det["confidence"],
-            "obb": det["obb"],
-            "crop_b64": det["crop_b64"],
+            "confidence": det.get("confidence", 0),
+            "obb": det.get("obb"),
+            "crop_b64": det.get("crop_b64"),
         })
+
+    _check_cancel()
 
     # Stage 4: Recommend
     _notify("recommend")

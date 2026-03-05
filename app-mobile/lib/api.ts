@@ -230,6 +230,13 @@ export function deleteScan(token: string, scanId: string) {
   });
 }
 
+export function cancelScan(token: string, scanId: string) {
+  return apiFetch<{ status: string }>(`/api/scans/${scanId}/cancel`, {
+    method: "POST",
+    token,
+  });
+}
+
 export function updateScan(
   token: string,
   scanId: string,
