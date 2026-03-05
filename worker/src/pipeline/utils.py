@@ -58,6 +58,8 @@ def load_image_to_pil(source: str, is_base64: bool = False) -> Image.Image:
 
 def pil_to_base64(img: Image.Image, fmt: str = "JPEG") -> str:
     """Convert a PIL Image to a base64-encoded string."""
+    if fmt.upper() == "JPEG" and img.mode == "RGBA":
+        img = img.convert("RGB")
     buf = io.BytesIO()
     img.save(buf, format=fmt)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
