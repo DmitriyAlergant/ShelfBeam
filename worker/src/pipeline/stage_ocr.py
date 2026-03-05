@@ -1,6 +1,7 @@
 """Stage 2: OCR on cropped book spine images.
 
-Supports three backends controlled by OCR_BACKEND env var:
+Supports four backends controlled by OCR_BACKEND env var:
+- "llm": Vision LLM via OpenAI-compatible API (uses OPENAI_API_KEY/OPENAI_BASE_URL + OCR_LLM_MODEL)
 - "hf": PaddleOCR-VL via HuggingFace Inference Endpoint (cloud GPU)
 - "mlx": PaddleOCR-VL via MLX OCR server (Apple Silicon, local)
 - "easyocr": EasyOCR on CPU (lower quality)
@@ -10,13 +11,16 @@ import base64
 import io
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from PIL import Image, ImageEnhance, ImageOps
 
+from .utils import create_openai_client, pil_to_base64
+
 log = logging.getLogger("pipeline.ocr")
 
+LLM_OCR_CONCURRENCY = 4
 MIN_HEIGHT_PX = 100
 CONTRAST_FACTOR = 1.5
 CONFIDENCE_THRESHOLD = 0.15
@@ -26,6 +30,66 @@ HF_OCR_CONCURRENCY = 4
 
 def _get_ocr_backend() -> str:
     return os.environ["OCR_BACKEND"]
+
+
+# --- LLM Vision backend ---
+
+SEPARATOR_HEIGHT = 6
+SEPARATOR_COLOR = (255, 0, 0)
+
+
+
+def _ocr_single_crop_llm(crop_b64: str, index: int, client, model: str) -> dict:
+    """OCR via vision LLM — send both orientations, ask for title + author."""
+ 
+    def _build_dual_orientation_image(crop_b64: str) -> str:
+        """Stack the crop and its 180° rotation vertically, separated by a red line."""
+        img = Image.open(io.BytesIO(base64.b64decode(crop_b64)))
+        flipped = img.rotate(180)
+
+        w = max(img.width, flipped.width)
+        h = img.height + SEPARATOR_HEIGHT + flipped.height
+        combined = Image.new("RGB", (w, h), SEPARATOR_COLOR)
+        combined.paste(img, (0, 0))
+        combined.paste(flipped, (0, img.height + SEPARATOR_HEIGHT))
+
+        return pil_to_base64(combined)
+
+    combined_b64 = _build_dual_orientation_image(crop_b64)
+
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        "This image shows a book spine, in two orientations (normal and flipped), separated by a horizontal red line."
+                        "The text may be in any language. "
+                        "Identify the book title and author from whichever orientation is readable. "
+                        "Reply with ONLY: Title — Author\n"
+                        "If you can only read the title, reply with just the title. "
+                        "If there appears to be more then one book, reply with the one that appears to be the CENTRAL focus of each part of the image (normal and flipped)"
+                    ),
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{combined_b64}"},
+                },
+            ],
+        }],
+        max_tokens=128,
+    )
+
+    text = resp.choices[0].message.content.strip()
+    log.info("  [%d] %s", index, text[:120])
+
+    return {
+        "index": index,
+        "ocr_text": text,
+        "ocr_regions": [],
+    }
 
 
 # --- MLX OCR Server backend ---
@@ -40,9 +104,8 @@ def _ocr_single_crop_mlx(crop_b64: str, index: int) -> dict:
     )
     resp.raise_for_status()
     text = resp.json()["text"]
-
-    log.info("  [%d] MLX OCR -> '%s'", index,
-             text[:80] + ("..." if len(text) > 80 else ""))
+    merged = " ".join(text.split())
+    log.info("  [%d] %s", index, merged[:120] + ("..." if len(merged) > 120 else ""))
 
     return {
         "index": index,
@@ -65,9 +128,8 @@ def _ocr_single_crop_hf(crop_b64: str, index: int) -> dict:
     )
     resp.raise_for_status()
     text = resp.json()[0]["text"]
-
-    log.info("  [%d] HF OCR -> '%s'", index,
-             text[:80] + ("..." if len(text) > 80 else ""))
+    merged = " ".join(text.split())
+    log.info("  [%d] %s", index, merged[:120] + ("..." if len(merged) > 120 else ""))
 
     return {
         "index": index,
@@ -142,10 +204,8 @@ def _ocr_single_crop_easyocr(crop_b64: str, index: int) -> dict:
     # Filter by confidence and combine text
     texts = [text for (_, text, conf) in results if conf >= CONFIDENCE_THRESHOLD]
     combined_text = " ".join(texts).strip()
-
-    log.info("  [%d] OCR %s: %d regions, %d kept -> '%s'",
-             index, orientation, len(results), len(texts),
-             combined_text[:80] + ("..." if len(combined_text) > 80 else ""))
+    log.info("  [%d] %s", index,
+             combined_text[:120] + ("..." if len(combined_text) > 120 else "") if combined_text else "(empty)")
 
     return {
         "index": index,
@@ -168,7 +228,11 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     backend = _get_ocr_backend()
     log.info("Running OCR on %d crops (backend=%s)", len(crops), backend)
 
-    if backend == "hf":
+    if backend == "llm":
+        client = create_openai_client()
+        model = os.environ["OCR_LLM_MODEL"]
+        ocr_fn = lambda b64, idx: _ocr_single_crop_llm(b64, idx, client, model)
+    elif backend == "hf":
         ocr_fn = _ocr_single_crop_hf
     elif backend == "mlx":
         ocr_fn = _ocr_single_crop_mlx
@@ -178,11 +242,17 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     else:
         raise ValueError(f"Unknown OCR_BACKEND: {backend}")
 
-    if backend == "hf":
-        with ThreadPoolExecutor(max_workers=HF_OCR_CONCURRENCY) as pool:
-            results = list(pool.map(lambda c: ocr_fn(c["crop_b64"], c["index"]), crops))
+    if backend in ("hf", "llm"):
+        results = []
+        concurrency = LLM_OCR_CONCURRENCY if backend == "llm" else HF_OCR_CONCURRENCY
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            futures = {pool.submit(ocr_fn, c["crop_b64"], c["index"]): c for c in crops}
+            for future in as_completed(futures):
+                results.append(future.result())
     else:
-        results = [ocr_fn(crop["crop_b64"], crop["index"]) for crop in crops]
+        results = []
+        for crop in crops:
+            results.append(ocr_fn(crop["crop_b64"], crop["index"]))
 
     results.sort(key=lambda r: r["index"])
     log.info("OCR complete: %d/%d crops processed", len(results), len(crops))
