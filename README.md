@@ -1,4 +1,4 @@
-# BookBeam
+# ShelfBeam
 
 An app helping kids choose books to read from a library bookshelf. Snap a pic of a shelf, AI discovers the books and provides personalized recommendations based on reading history.
 
@@ -50,7 +50,7 @@ cd worker && pytest
 ## Project Structure
 
 ```
-BookBeam/
+ShelfBeam/
 ├── app-mobile/      # Expo + React Native app
 ├── app-backend/     # Express API + Drizzle ORM
 ├── designs/         # Screen maps, data model, design guidelines

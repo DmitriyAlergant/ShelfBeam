@@ -113,7 +113,7 @@ export default function SignInScreen() {
           <View style={styles.logoCircle}>
             <Text style={styles.logoEmoji}>📚</Text>
           </View>
-          <Text style={styles.title}>BookBeam</Text>
+          <Text style={styles.title}>ShelfBeam</Text>
           <Text style={styles.subtitle}>Discover your next great read</Text>
         </View>
 

@@ -3,13 +3,16 @@
 import json
 import logging
 import os
+from datetime import datetime, timezone
+
+import boto3
 
 from .utils import create_openai_client, llm_call_with_json_retry
 
 log = logging.getLogger("pipeline.recommend")
 
 RECOMMEND_PROMPT = """\
-You are a children's librarian AI assistant for the BookBeam app.
+You are a children's librarian AI assistant for the ShelfBeam app.
 
 You have a list of books detected on a library bookshelf. Your job is to recommend \
 the best books for this specific reader based on their profile, reading history, and \
@@ -29,7 +32,8 @@ Instructions:
 - If no books are a good fit, return an empty recommendations list and say so in the summary.
 - It is OK to recommend less then 5 books. Presumably the reader is in a library and they can move on and scan another shelf.
 - Consider the reader's age, interests, languages, and reading history when making picks.
-- Avoid recommending books the reader has already read (listed in their history).
+- The reader's history may include emoji reactions and comments. The reader was given these emojis to express how they felt about each book: 👍 👎 ❤️ 🔥 😂 😢 😱 🤔 🤯 💤 😡. Use their reactions and comments to understand their tastes.
+- Avoid recommending books the reader has already read or is currently reading (listed in their history).
 
 Respond with ONLY valid JSON matching this schema:
 {{
@@ -45,12 +49,43 @@ Respond with ONLY valid JSON matching this schema:
 """
 
 
+_s3_client = None
+
+
+def _get_s3_client():
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            "s3",
+            endpoint_url=os.environ["S3_ENDPOINT"],
+            aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+            aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+        )
+    return _s3_client
+
+
+def _dump_request_to_s3(scan_id: str, request_body: dict):
+    """Dump the full recommendation request body to S3 for diagnostics."""
+    bucket = os.environ["S3_BUCKET"]
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    key = f"diagnostics/{scan_id}/recommend_request_{timestamp}.json"
+    payload = json.dumps(request_body, indent=2, ensure_ascii=False)
+    _get_s3_client().put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=payload.encode("utf-8"),
+        ContentType="application/json",
+    )
+    log.info("Dumped recommendation request to s3://%s/%s", bucket, key)
+
+
 def recommend_books(
     normalized_books: list[dict],
     reader_context: str,
     reader_comment: str | None = None,
     openai_client=None,
     model: str | None = None,
+    scan_id: str | None = None,
 ) -> dict:
     """Generate personalized recommendations from normalized books + reader context."""
     if openai_client is None:
@@ -86,12 +121,22 @@ def recommend_books(
         books_json=books_json,
     )
 
+    messages = [{"role": "user", "content": prompt}]
+    llm_kwargs = {"max_tokens": 2048, "temperature": 0.5}
+
+    # Dump full request body to S3 for diagnostics
+    if scan_id:
+        _dump_request_to_s3(scan_id, {
+            "model": model,
+            "messages": messages,
+            **llm_kwargs,
+        })
+
     parsed = llm_call_with_json_retry(
         openai_client,
         model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2048,
-        temperature=0.5,
+        messages=messages,
+        **llm_kwargs,
     )
 
     recommendations = parsed.get("recommendations", [])
