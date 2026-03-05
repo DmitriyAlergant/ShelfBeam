@@ -147,7 +147,8 @@ def recover_stale_scans():
                 """
                 SELECT id, processing_task_id
                 FROM scan
-                WHERE processing_status IN ('reading', 'looking_up', 'recommending')
+                WHERE (processing_status IN ('reading', 'looking_up', 'recommending')
+                   OR (processing_status = 'detecting' AND processing_task_id IS NOT NULL))
                   AND processing_task_started < now() - interval '%s seconds'
                 """,
                 (STALE_TASK_TIMEOUT_SECONDS,),

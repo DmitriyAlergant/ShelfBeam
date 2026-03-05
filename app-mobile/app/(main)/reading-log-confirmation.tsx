@@ -11,7 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -39,7 +39,13 @@ export default function ReadingLogConfirmationScreen() {
   const { activeProfile } = useAppContext();
   const [saving, setSaving] = useState(false);
 
-  const parsedEntries: ParsedBookEntry[] = parsed ? JSON.parse(parsed) : [];
+  const parsedEntries: ParsedBookEntry[] = (() => {
+    try {
+      return parsed ? JSON.parse(parsed) : [];
+    } catch {
+      return [];
+    }
+  })();
 
   const [entries, setEntries] = useState<EditableEntry[]>(
     parsedEntries.map((e) => ({
@@ -85,42 +91,48 @@ export default function ReadingLogConfirmationScreen() {
 
     setSaving(true);
 
-    const activeEntries = entries.filter((e) => !e.removed);
+    try {
+      const activeEntries = entries.filter((e) => !e.removed);
 
-    for (const entry of activeEntries) {
-      if (entry.entry_type === "update" && entry.existing_history_entry_id) {
-        // Update existing history entry
-        await updateHistoryEntry(token, activeProfile.id, entry.existing_history_entry_id, {
-          status: entry.status,
-          reactions: entry.reactions,
-          comment: entry.comment || undefined,
-        });
-      } else {
-        // New book: create book then add to history
-        const book = await createBook(token, {
-          title: entry.title,
-          author: entry.author,
-          is_series: entry.is_series ?? false,
-        });
+      for (const entry of activeEntries) {
+        if (entry.entry_type === "update" && entry.existing_history_entry_id) {
+          // Update existing history entry
+          await updateHistoryEntry(token, activeProfile.id, entry.existing_history_entry_id, {
+            status: entry.status,
+            reactions: entry.reactions,
+            comment: entry.comment || undefined,
+          });
+        } else {
+          // New book: create book then add to history
+          const book = await createBook(token, {
+            title: entry.title,
+            author: entry.author,
+            is_series: entry.is_series ?? false,
+          });
 
-        await addToHistory(token, activeProfile.id, {
-          book_id: book.id,
-          source: "reading_log",
-          status: entry.status,
-          reactions: entry.reactions,
-          comment: entry.comment || undefined,
-        });
+          await addToHistory(token, activeProfile.id, {
+            book_id: book.id,
+            source: "reading_log",
+            status: entry.status,
+            reactions: entry.reactions,
+            comment: entry.comment || undefined,
+          });
+        }
       }
-    }
 
-    setSaving(false);
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
 
-    // Navigate back to books tab
-    router.dismissAll();
-    router.replace("/(main)/(tabs)/books");
+      // Navigate back to books tab
+      router.dismissAll();
+      router.replace("/(main)/(tabs)/books");
+    } catch (err) {
+      Alert.alert("Error", "Failed to save reading log. Please try again.");
+      throw err;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const activeEntries = entries.filter((e) => !e.removed);

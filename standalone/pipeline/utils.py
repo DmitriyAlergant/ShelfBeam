@@ -3,13 +3,16 @@
 import base64
 import io
 import json
+import logging
 import os
 
 from openai import OpenAI
 from PIL import Image
 
+log = logging.getLogger("pipeline.utils")
 
-def _parse_llm_json(raw_text: str) -> dict:
+
+def _parse_llm_json(raw_text: str) -> dict | list:
     """Strip markdown fences and parse JSON from LLM response."""
     text = raw_text.strip()
     if text.startswith("```"):
@@ -17,6 +20,22 @@ def _parse_llm_json(raw_text: str) -> dict:
         lines = [l for l in lines[1:] if not l.strip().startswith("```")]
         text = "\n".join(lines)
     return json.loads(text)
+
+
+def llm_call_with_json_retry(openai_client, model: str, messages: list, **kwargs) -> dict | list:
+    """Make an LLM call and parse JSON response, retrying once on parse failure."""
+    response = openai_client.chat.completions.create(model=model, messages=messages, **kwargs)
+    raw = response.choices[0].message.content
+    try:
+        return _parse_llm_json(raw)
+    except json.JSONDecodeError:
+        log.warning("LLM returned malformed JSON, retrying once...")
+        messages_with_fix = messages + [
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content": "Your response was not valid JSON. Please try again with ONLY valid JSON, no other text."},
+        ]
+        response = openai_client.chat.completions.create(model=model, messages=messages_with_fix, **kwargs)
+        return _parse_llm_json(response.choices[0].message.content)
 
 
 def create_openai_client() -> OpenAI:

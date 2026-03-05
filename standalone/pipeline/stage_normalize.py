@@ -4,7 +4,7 @@ import json
 import logging
 import os
 
-from .utils import _parse_llm_json, create_openai_client
+from .utils import create_openai_client, llm_call_with_json_retry
 
 log = logging.getLogger("pipeline.normalize")
 
@@ -69,15 +69,13 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
         entries_json = json.dumps(batch_input, indent=2, ensure_ascii=False)
         prompt = NORMALIZE_PROMPT.format(entries_json=entries_json)
 
-        response = openai_client.chat.completions.create(
+        parsed = llm_call_with_json_retry(
+            openai_client,
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2048,
             temperature=0.1,
         )
-
-        raw = response.choices[0].message.content
-        parsed = _parse_llm_json(raw)
 
         if not isinstance(parsed, list):
             raise ValueError(f"Expected JSON array from LLM, got: {type(parsed)}")

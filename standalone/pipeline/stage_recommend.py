@@ -4,7 +4,7 @@ import json
 import logging
 import os
 
-from .utils import _parse_llm_json, create_openai_client
+from .utils import create_openai_client, llm_call_with_json_retry
 
 log = logging.getLogger("pipeline.recommend")
 
@@ -85,15 +85,13 @@ def recommend_books(
         books_json=books_json,
     )
 
-    response = openai_client.chat.completions.create(
+    parsed = llm_call_with_json_retry(
+        openai_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2048,
         temperature=0.5,
     )
-
-    raw = response.choices[0].message.content
-    parsed = _parse_llm_json(raw)
 
     recommendations = parsed.get("recommendations", [])
     summary = parsed.get("recommendation_summary", "")

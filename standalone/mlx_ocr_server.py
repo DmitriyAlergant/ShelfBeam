@@ -70,17 +70,25 @@ class OCRHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length))
-        image_b64 = body["image_b64"]
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+            image_b64 = body["image_b64"]
 
-        text = _ocr_image(image_b64)
+            text = _ocr_image(image_b64)
 
-        response = json.dumps({"text": text})
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(response.encode())
+            response = json.dumps({"text": text})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(response.encode())
+        except Exception:
+            log.exception("OCR request failed")
+            error_response = json.dumps({"error": "OCR processing failed"})
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(error_response.encode())
 
     def log_message(self, format, *args):
         log.info(format, *args)
