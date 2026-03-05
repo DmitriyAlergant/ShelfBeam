@@ -70,6 +70,9 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newInterest, setNewInterest] = useState("");
+  const [newLanguage, setNewLanguage] = useState("");
+  const [showCustomInterest, setShowCustomInterest] = useState(false);
+  const [showCustomLanguage, setShowCustomLanguage] = useState(false);
 
   // Initialize from active profile (only on first load / profile switch)
   const [initializedProfileId, setInitializedProfileId] = useState<string | null>(null);
@@ -156,13 +159,29 @@ export default function ProfileScreen() {
     const trimmed = newInterest.trim();
     if (!trimmed || interests.includes(trimmed)) {
       setNewInterest("");
+      setShowCustomInterest(false);
       return;
     }
     const newInterests = [...interests, trimmed];
     setInterests(newInterests);
     setNewInterest("");
+    setShowCustomInterest(false);
     save({ interests: newInterests });
   }, [newInterest, interests, save]);
+
+  const addCustomLanguage = useCallback(() => {
+    const trimmed = newLanguage.trim();
+    if (!trimmed || languages.includes(trimmed)) {
+      setNewLanguage("");
+      setShowCustomLanguage(false);
+      return;
+    }
+    const newLangs = [...languages, trimmed];
+    setLanguages(newLangs);
+    setNewLanguage("");
+    setShowCustomLanguage(false);
+    save({ languages: newLangs });
+  }, [newLanguage, languages, save]);
 
   const handleNotesBlur = useCallback(() => {
     save({ notes: notes.trim() });
@@ -292,6 +311,41 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               );
             })}
+            {languages
+              .filter((l) => !LANGUAGE_OPTIONS.includes(l))
+              .map((custom) => (
+                <TouchableOpacity
+                  key={custom}
+                  style={[styles.multiChip, styles.multiChipActive]}
+                  onPress={() => toggleLanguage(custom)}
+                >
+                  <Text style={[styles.multiChipText, styles.multiChipTextActive]}>
+                    {custom} ✕
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            {showCustomLanguage ? (
+              <View style={styles.inlineInputWrap}>
+                <TextInput
+                  style={styles.inlineInput}
+                  value={newLanguage}
+                  onChangeText={setNewLanguage}
+                  placeholder="Type..."
+                  placeholderTextColor={colors.inkLight}
+                  onSubmitEditing={addCustomLanguage}
+                  onBlur={() => { if (!newLanguage.trim()) setShowCustomLanguage(false); }}
+                  autoFocus
+                  returnKeyType="done"
+                />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.addChip}
+                onPress={() => setShowCustomLanguage(true)}
+              >
+                <Text style={styles.addChipText}>+ Add</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -339,23 +393,26 @@ export default function ProfileScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-          </View>
-          <View style={styles.addInterestRow}>
-            <TextInput
-              style={styles.addInterestInput}
-              value={newInterest}
-              onChangeText={setNewInterest}
-              placeholder="Add your own..."
-              placeholderTextColor={colors.inkLight}
-              onSubmitEditing={addCustomInterest}
-              returnKeyType="done"
-            />
-            {newInterest.trim() !== "" && (
+            {showCustomInterest ? (
+              <View style={styles.inlineInputWrap}>
+                <TextInput
+                  style={styles.inlineInput}
+                  value={newInterest}
+                  onChangeText={setNewInterest}
+                  placeholder="Type..."
+                  placeholderTextColor={colors.inkLight}
+                  onSubmitEditing={addCustomInterest}
+                  onBlur={() => { if (!newInterest.trim()) setShowCustomInterest(false); }}
+                  autoFocus
+                  returnKeyType="done"
+                />
+              </View>
+            ) : (
               <TouchableOpacity
-                style={styles.addInterestButton}
-                onPress={addCustomInterest}
+                style={styles.addChip}
+                onPress={() => setShowCustomInterest(true)}
               >
-                <Text style={styles.addInterestButtonText}>Add</Text>
+                <Text style={styles.addChipText}>+ Add</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -369,7 +426,7 @@ export default function ProfileScreen() {
             value={notes}
             onChangeText={setNotes}
             onBlur={handleNotesBlur}
-            placeholder="Anything else we should know about this reader..."
+            placeholder="Anything else about me as a reader..."
             placeholderTextColor={colors.inkLight}
             multiline
             textAlignVertical="top"
@@ -487,8 +544,8 @@ const styles = StyleSheet.create({
     color: colors.inkDark,
   },
   multiChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: colors.bgWarm,
   },
@@ -522,31 +579,31 @@ const styles = StyleSheet.create({
   interestChipTextActive: {
     color: colors.shelfBrown,
   },
-  addInterestRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  addInterestInput: {
-    flex: 1,
+  addChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
     backgroundColor: colors.bgWarm,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 14,
+  },
+  addChipText: {
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMedium,
+  },
+  inlineInputWrap: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.beamYellow,
+    backgroundColor: colors.bgWarm,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    minWidth: 80,
+  },
+  inlineInput: {
+    fontSize: 13,
     fontFamily: fonts.body,
     color: colors.inkDark,
-  },
-  addInterestButton: {
-    backgroundColor: colors.beamYellow,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    justifyContent: "center",
-  },
-  addInterestButtonText: {
-    fontSize: 14,
-    fontFamily: fonts.heading,
-    color: colors.inkDark,
+    padding: 0,
   },
   logoutButton: {
     marginTop: spacing.md,

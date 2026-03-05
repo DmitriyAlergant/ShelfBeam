@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   ctaButton: {
     backgroundColor: colors.beamYellow,
     borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
@@ -187,11 +187,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   ctaEmoji: {
-    fontSize: 28,
+    fontSize: 22,
   },
   ctaText: {
     color: colors.inkDark,
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: fonts.heading,
   },
   listContent: {
