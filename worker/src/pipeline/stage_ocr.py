@@ -1,14 +1,16 @@
 """Stage 2: OCR on cropped book spine images.
 
-Supports two backends controlled by OCR_BACKEND env var:
-- "mlx" (default): PaddleOCR-VL via MLX OCR server (high quality, Apple Silicon)
-- "easyocr": EasyOCR on CPU (fallback, lower quality)
+Supports three backends controlled by OCR_BACKEND env var:
+- "hf": PaddleOCR-VL via HuggingFace Inference Endpoint (cloud GPU)
+- "mlx": PaddleOCR-VL via MLX OCR server (Apple Silicon, local)
+- "easyocr": EasyOCR on CPU (lower quality)
 """
 
 import base64
 import io
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from PIL import Image, ImageEnhance, ImageOps
@@ -18,6 +20,8 @@ log = logging.getLogger("pipeline.ocr")
 MIN_HEIGHT_PX = 100
 CONTRAST_FACTOR = 1.5
 CONFIDENCE_THRESHOLD = 0.15
+HF_OCR_MAX_TOKENS = 64
+HF_OCR_CONCURRENCY = 4
 
 
 def _get_ocr_backend() -> str:
@@ -38,6 +42,31 @@ def _ocr_single_crop_mlx(crop_b64: str, index: int) -> dict:
     text = resp.json()["text"]
 
     log.info("  [%d] MLX OCR -> '%s'", index,
+             text[:80] + ("..." if len(text) > 80 else ""))
+
+    return {
+        "index": index,
+        "ocr_text": text,
+        "ocr_regions": [],
+    }
+
+
+# --- HuggingFace Endpoint backend ---
+
+def _ocr_single_crop_hf(crop_b64: str, index: int) -> dict:
+    """OCR via HuggingFace Inference Endpoint (PaddleOCR-VL)."""
+    endpoint_url = os.environ["HF_ENDPOINT_URL"]
+    api_key = os.environ["HUGGINGFACE_API_KEY"]
+    resp = requests.post(
+        endpoint_url,
+        json={"image": crop_b64, "task": "ocr", "max_new_tokens": HF_OCR_MAX_TOKENS},
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=180,
+    )
+    resp.raise_for_status()
+    text = resp.json()[0]["text"]
+
+    log.info("  [%d] HF OCR -> '%s'", index,
              text[:80] + ("..." if len(text) > 80 else ""))
 
     return {
@@ -139,7 +168,9 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     backend = _get_ocr_backend()
     log.info("Running OCR on %d crops (backend=%s)", len(crops), backend)
 
-    if backend == "mlx":
+    if backend == "hf":
+        ocr_fn = _ocr_single_crop_hf
+    elif backend == "mlx":
         ocr_fn = _ocr_single_crop_mlx
     elif backend == "easyocr":
         _get_reader()
@@ -147,10 +178,11 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     else:
         raise ValueError(f"Unknown OCR_BACKEND: {backend}")
 
-    results = []
-    for crop in crops:
-        result = ocr_fn(crop["crop_b64"], crop["index"])
-        results.append(result)
+    if backend == "hf":
+        with ThreadPoolExecutor(max_workers=HF_OCR_CONCURRENCY) as pool:
+            results = list(pool.map(lambda c: ocr_fn(c["crop_b64"], c["index"]), crops))
+    else:
+        results = [ocr_fn(crop["crop_b64"], crop["index"]) for crop in crops]
 
     results.sort(key=lambda r: r["index"])
     log.info("OCR complete: %d/%d crops processed", len(results), len(crops))

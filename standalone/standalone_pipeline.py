@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
+# Add worker/src to path so we can import the pipeline package
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "worker", "src"))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",

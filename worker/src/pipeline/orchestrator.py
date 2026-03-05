@@ -65,8 +65,22 @@ def run_full_pipeline(
     _notify("recommend")
     rec_result = recommend_books(normalized, reader_context, reader_comment)
 
+    # Resolve book_index references to actual book data
+    books_by_index = {b["index"]: b for b in detected_books}
+    resolved_recommendations = []
+    for pick in rec_result.get("recommendations", []):
+        book = books_by_index.get(pick.get("book_index"))
+        if book and book.get("title"):
+            resolved_recommendations.append({
+                "book_index": pick["book_index"],
+                "rank": pick.get("rank"),
+                "title": book["title"],
+                "author": book.get("author"),
+                "reason": pick.get("comment", ""),
+            })
+
     return {
         "detected_books": detected_books,
-        "recommendations": rec_result["recommendations"],
+        "recommendations": resolved_recommendations,
         "recommendation_summary": rec_result["recommendation_summary"],
     }
