@@ -222,16 +222,26 @@ def detect_books(image_path_or_b64: str, is_base64: bool = False) -> list[dict]:
         crop = _crop_and_rotate(img, pred)
         crop_b64 = pil_to_base64(crop)
 
+        # Oriented bounding box from polygon, or axis-aligned bbox as fallback
+        points = pred.get("points")
+        if points and len(points) >= 3:
+            rect_corners, _, _ = _min_area_rect(points)
+            corners = _order_rect_corners(rect_corners)
+            obb = [[round(float(c[0])), round(float(c[1]))] for c in corners]
+        else:
+            x, y = pred["x"], pred["y"]
+            w, h = pred["width"], pred["height"]
+            obb = [
+                [round(x - w / 2), round(y - h / 2)],
+                [round(x + w / 2), round(y - h / 2)],
+                [round(x + w / 2), round(y + h / 2)],
+                [round(x - w / 2), round(y + h / 2)],
+            ]
+
         results.append({
             "index": i,
-            "bbox": {
-                "x": pred["x"],
-                "y": pred["y"],
-                "width": pred["width"],
-                "height": pred["height"],
-            },
+            "obb": obb,
             "confidence": pred["confidence"],
-            "class": pred.get("class", "book"),
             "crop_b64": crop_b64,
         })
 

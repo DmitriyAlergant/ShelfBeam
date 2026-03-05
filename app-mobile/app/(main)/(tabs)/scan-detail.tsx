@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import {
@@ -22,6 +25,7 @@ import {
   addToHistory,
   getImageUrl,
   type DetectedBook,
+  type ScanRecommendationPick,
 } from "../../../lib/api";
 import { useScanStore } from "../../../lib/stores/useScanStore";
 import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
@@ -57,6 +61,7 @@ export default function ScanDetailScreen() {
   const [savingComment, setSavingComment] = useState(false);
   const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
   const [imageExpanded, setImageExpanded] = useState(false);
+  const [selectedPick, setSelectedPick] = useState<ScanRecommendationPick | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -341,29 +346,40 @@ export default function ScanDetailScreen() {
             const isTaken = takenBookKeys.has(bookKey(pickAsBook));
             const rank = pick.rank ?? i + 1;
             return (
-              <View key={i} style={styles.bookCard}>
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankText}>{rank}</Text>
-                </View>
-                <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>{pick.title}</Text>
-                  {pick.author && (
-                    <Text style={styles.bookAuthor} numberOfLines={1}>{pick.author}</Text>
+              <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setSelectedPick(pick)}>
+                <View style={styles.bookCard}>
+                  {pick.crop_url && (
+                    <Image
+                      source={{ uri: getImageUrl(pick.crop_url) }}
+                      style={styles.bookCropThumb}
+                      resizeMode="cover"
+                    />
                   )}
-                  {pick.reason && (
-                    <Text style={styles.pickReason} numberOfLines={2}>{pick.reason}</Text>
+                  {!pick.crop_url && (
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankText}>{rank}</Text>
+                    </View>
                   )}
+                  <View style={styles.bookInfo}>
+                    <Text style={styles.bookTitle} numberOfLines={2}>{pick.title}</Text>
+                    {pick.author && (
+                      <Text style={styles.bookAuthor} numberOfLines={1}>{pick.author}</Text>
+                    )}
+                    {pick.reason && (
+                      <Text style={styles.pickReason} numberOfLines={2}>{pick.reason}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.takeButton, isTaken && styles.takeButtonDone]}
+                    onPress={() => !isTaken && takeBook(pickAsBook)}
+                    disabled={isTaken}
+                  >
+                    <Text style={[styles.takeText, isTaken && styles.takeTextDone]}>
+                      {isTaken ? "Added ✓" : "Take"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={[styles.takeButton, isTaken && styles.takeButtonDone]}
-                  onPress={() => !isTaken && takeBook(pickAsBook)}
-                  disabled={isTaken}
-                >
-                  <Text style={[styles.takeText, isTaken && styles.takeTextDone]}>
-                    {isTaken ? "Added ✓" : "Take"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             );
           })}
 
@@ -391,11 +407,14 @@ export default function ScanDetailScreen() {
               returnKeyType="done"
               onSubmitEditing={saveComment}
             />
-            {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
+            {savingComment ? (
+              <ActivityIndicator size="small" color={colors.beamYellow} />
+            ) : (
+              <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+                <Ionicons name="refresh" size={20} color={colors.inkDark} />
+              </TouchableOpacity>
+            )}
           </View>
-          <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
-            <Text style={styles.refreshRecoText}>Refresh Recommendations</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -419,6 +438,71 @@ export default function ScanDetailScreen() {
       )}
 
     </ScrollView>
+
+      {/* Recommendation detail modal */}
+      {selectedPick && (() => {
+        const pickAsBook: DetectedBook = { title: selectedPick.title, author: selectedPick.author };
+        const isTaken = takenBookKeys.has(bookKey(pickAsBook));
+        return (
+          <Modal
+            visible
+            transparent
+            animationType="slide"
+            onRequestClose={() => setSelectedPick(null)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.lg }]}>
+                {/* Close button */}
+                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedPick(null)}>
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+
+                {/* Rank badge */}
+                <View style={styles.modalRankBadge}>
+                  <Text style={styles.modalRankText}>
+                    #{selectedPick.rank ?? 1}
+                  </Text>
+                </View>
+
+                {/* Cropped spine image */}
+                {selectedPick.crop_url && (
+                  <Image
+                    source={{ uri: getImageUrl(selectedPick.crop_url) }}
+                    style={styles.modalCropImage}
+                    resizeMode="contain"
+                  />
+                )}
+
+                {/* Title & author */}
+                <Text style={styles.modalTitle}>{selectedPick.title}</Text>
+                {selectedPick.author && (
+                  <Text style={styles.modalAuthor}>{selectedPick.author}</Text>
+                )}
+
+                {/* Reason */}
+                {selectedPick.reason && (
+                  <View style={styles.modalReasonCard}>
+                    <Text style={styles.modalReasonText}>{selectedPick.reason}</Text>
+                  </View>
+                )}
+
+                {/* Take button */}
+                <TouchableOpacity
+                  style={[styles.modalTakeButton, isTaken && styles.modalTakeButtonDone]}
+                  onPress={() => {
+                    if (!isTaken) takeBook(pickAsBook);
+                  }}
+                  disabled={isTaken}
+                >
+                  <Text style={[styles.modalTakeText, isTaken && styles.modalTakeTextDone]}>
+                    {isTaken ? "Added to Reading List ✓" : "Take This Book"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
 
       {/* Toast notification */}
       {toastMessage && (
@@ -673,17 +757,123 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   refreshRecoButton: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.pageTeal,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.bgWarm,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  refreshRecoText: {
-    fontSize: 13,
+
+  // Book crop thumbnail in card
+  bookCropThumb: {
+    width: 40,
+    height: 56,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgWarm,
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(45,35,25,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: colors.bgCream,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    maxHeight: Dimensions.get("window").height * 0.8,
+  },
+  modalClose: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.lg,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.bgWarm,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  modalCloseText: {
+    fontSize: 16,
     fontFamily: fonts.headingMedium,
-    color: "#fff",
+    color: colors.inkMedium,
+  },
+  modalRankBadge: {
+    backgroundColor: colors.beamYellow,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.md,
+    ...shadows.button,
+  },
+  modalRankText: {
+    fontSize: 16,
+    fontFamily: fonts.heading,
+    color: colors.shelfBrown,
+  },
+  modalCropImage: {
+    width: 120,
+    height: 180,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.bgWarm,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+    textAlign: "center",
+    marginBottom: spacing.xs,
+  },
+  modalAuthor: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    marginBottom: spacing.md,
+  },
+  modalReasonCard: {
+    backgroundColor: colors.beamYellowLight,
+    borderRadius: radius.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.beamYellow,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    width: "100%",
+  },
+  modalReasonText: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
+    lineHeight: 22,
+    fontStyle: "italic",
+  },
+  modalTakeButton: {
+    backgroundColor: colors.beamYellow,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    ...shadows.button,
+    marginBottom: spacing.md,
+  },
+  modalTakeButtonDone: {
+    backgroundColor: colors.tealLight,
+    shadowOpacity: 0,
+  },
+  modalTakeText: {
+    fontSize: 16,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
+  },
+  modalTakeTextDone: {
+    color: colors.pageTeal,
   },
 
   // Toast

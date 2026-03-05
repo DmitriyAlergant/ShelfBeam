@@ -82,7 +82,7 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="scan"
-          options={{ title: "Scan" }}
+          options={{ title: "Scans" }}
         />
         <Tabs.Screen
           name="scan-detail"

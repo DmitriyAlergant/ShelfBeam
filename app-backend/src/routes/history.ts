@@ -33,7 +33,7 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
     .where(eq(bookHistoryEntry.readerProfileId, req.params.profileId as string))
-    .orderBy(asc(bookHistoryEntry.createdAt), asc(bookHistoryEntry.id));
+    .orderBy(desc(bookHistoryEntry.createdAt), desc(bookHistoryEntry.id));
 
   res.json(rows);
 });

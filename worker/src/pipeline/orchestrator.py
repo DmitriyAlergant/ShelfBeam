@@ -60,7 +60,7 @@ def run_full_pipeline(
             "title": norm.get("title"),
             "author": norm.get("author"),
             "confidence": det["confidence"],
-            "bbox": det["bbox"],
+            "obb": det["obb"],
             "crop_b64": det["crop_b64"],
         })
 
@@ -80,6 +80,7 @@ def run_full_pipeline(
                 "title": book["title"],
                 "author": book.get("author"),
                 "reason": pick.get("comment", ""),
+                "obb": book["obb"],
             })
 
     return {
