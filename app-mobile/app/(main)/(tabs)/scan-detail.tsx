@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Svg, { Path, Polygon } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
@@ -32,18 +33,120 @@ import {
 import { useScanStore } from "../../../lib/stores/useScanStore";
 import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
 
-const PROCESSING_STEPS = [
-  { key: "pending", label: "In queue", emoji: "⏳" },
-  { key: "detecting", label: "Finding books", emoji: "🔍" },
+const BEAM_GLOW_COLOR = "rgba(255, 214, 51, 0.7)"; // beamYellow with opacity
+const BEAM_GLOW_COLOR_STRONG = "rgba(255, 214, 51, 0.9)";
+
+function BeamOverlay({
+  imageUrl,
+  obb,
+}: {
+  imageUrl: string;
+  obb: number[][];
+}) {
+  const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const containerWidth = Dimensions.get("window").width - spacing.lg * 2;
+  const containerHeight = 260;
+
+  useEffect(() => {
+    Image.getSize(
+      imageUrl,
+      (w, h) => setImageNaturalSize({ w, h }),
+      () => {}
+    );
+  }, [imageUrl]);
+
+  if (!imageNaturalSize) {
+    return (
+      <View style={{ width: containerWidth, height: containerHeight, backgroundColor: colors.bgWarm, borderRadius: radius.lg }} />
+    );
+  }
+
+  // Fit image into container (contain mode)
+  const imgAspect = imageNaturalSize.w / imageNaturalSize.h;
+  const containerAspect = containerWidth / containerHeight;
+  let displayW: number, displayH: number, offsetX: number, offsetY: number;
+  if (imgAspect > containerAspect) {
+    displayW = containerWidth;
+    displayH = containerWidth / imgAspect;
+    offsetX = 0;
+    offsetY = (containerHeight - displayH) / 2;
+  } else {
+    displayH = containerHeight;
+    displayW = containerHeight * imgAspect;
+    offsetX = (containerWidth - displayW) / 2;
+    offsetY = 0;
+  }
+
+  const scaleX = displayW / imageNaturalSize.w;
+  const scaleY = displayH / imageNaturalSize.h;
+
+  // Map OBB corners to display coordinates
+  const scaledPoints = obb.map(([x, y]) => ({
+    x: offsetX + x * scaleX,
+    y: offsetY + y * scaleY,
+  }));
+  const pointsStr = scaledPoints.map((p) => `${p.x},${p.y}`).join(" ");
+
+  // Expand polygon slightly for the outer glow
+  const cx = scaledPoints.reduce((s, p) => s + p.x, 0) / scaledPoints.length;
+  const cy = scaledPoints.reduce((s, p) => s + p.y, 0) / scaledPoints.length;
+  const glowScale = 1.08;
+  const glowPoints = scaledPoints
+    .map((p) => `${cx + (p.x - cx) * glowScale},${cy + (p.y - cy) * glowScale}`)
+    .join(" ");
+
+  return (
+    <View style={{ width: containerWidth, height: containerHeight, borderRadius: radius.lg, overflow: "hidden", marginBottom: spacing.md }}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={{ width: containerWidth, height: containerHeight }}
+        resizeMode="contain"
+      />
+      <Svg
+        width={containerWidth}
+        height={containerHeight}
+        style={{ position: "absolute", top: 0, left: 0 }}
+      >
+        {/* Dark overlay with cutout for the book (evenodd path) */}
+        <Path
+          d={`M0,0 H${containerWidth} V${containerHeight} H0 Z ` +
+            `M${scaledPoints.map((p) => `${p.x},${p.y}`).join(" L")} Z`}
+          fill="rgba(30,25,20,0.55)"
+          fillRule="evenodd"
+        />
+        {/* Outer glow */}
+        <Polygon
+          points={glowPoints}
+          fill="none"
+          stroke={BEAM_GLOW_COLOR}
+          strokeWidth={8}
+          strokeLinejoin="round"
+          opacity={0.5}
+        />
+        {/* Inner bright border — the "beam" */}
+        <Polygon
+          points={pointsStr}
+          fill="none"
+          stroke={BEAM_GLOW_COLOR_STRONG}
+          strokeWidth={3}
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
+const WORKFLOW_STEPS = [
+  { key: "detecting", label: "Noticing books", emoji: "🔍" },
   { key: "reading", label: "Reading spines", emoji: "📖" },
   { key: "looking_up", label: "Learning", emoji: "📚" },
   { key: "recommending", label: "Picking favorites", emoji: "⭐" },
 ];
 
-const TERMINAL_STATUSES = ["done", "error", "failed"];
+const TERMINAL_STATUSES = ["done", "error", "failed", "cancelled"];
 
-function getStepIndex(status: string | null): number {
-  const idx = PROCESSING_STEPS.findIndex((s) => s.key === status);
+function getWorkflowStepIndex(status: string | null): number {
+  const idx = WORKFLOW_STEPS.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : 0;
 }
 
@@ -58,6 +161,7 @@ export default function ScanDetailScreen() {
   const storeFetchScan = useScanStore((s) => s.fetchScan);
   const storeUpdateScan = useScanStore((s) => s.updateScan);
   const storePatchLocal = useScanStore((s) => s.patchScanLocal);
+  const storeCancelScan = useScanStore((s) => s.cancelScan);
   const [loading, setLoading] = useState(!scan);
   const [rerunPending, setRerunPending] = useState(false);
   const [comment, setComment] = useState("");
@@ -213,6 +317,13 @@ export default function ScanDetailScreen() {
     [activeProfile, getToken, id, showToast]
   );
 
+  const handleCancel = useCallback(async () => {
+    if (!id) return;
+    const token = await getToken();
+    if (!token) return;
+    storeCancelScan(token, id);
+  }, [id, getToken, storeCancelScan]);
+
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
     setRerunPending(true);
@@ -221,9 +332,6 @@ export default function ScanDetailScreen() {
     await storeUpdateScan(token, id, {
       processing_status: "pending",
       processing_task_id: null,
-      detected_books: null,
-      recommendation: null,
-      recommendation_summary: null,
     });
   }, [id, getToken, storeUpdateScan]);
 
@@ -236,9 +344,11 @@ export default function ScanDetailScreen() {
   }
 
   const effectiveStatus = rerunPending ? "pending" : scan.processingStatus;
-  const currentStep = getStepIndex(effectiveStatus);
+  const isPending = effectiveStatus === "pending";
+  const workflowStep = getWorkflowStepIndex(effectiveStatus);
   const isDone = effectiveStatus === "done";
   const isError = effectiveStatus === "error" || effectiveStatus === "failed";
+  const isCancelled = effectiveStatus === "cancelled";
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
@@ -274,59 +384,69 @@ export default function ScanDetailScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Processing stepper */}
-      {!isDone && !isError && (() => {
-        const windowStart = currentStep > 0 ? 1 : 0;
-        const visibleSteps = PROCESSING_STEPS.slice(windowStart);
-        return (
-          <View style={styles.section}>
-            <View style={styles.stepper}>
-              {visibleSteps.map((step, visIdx) => {
-                const globalIdx = windowStart + visIdx;
-                const isActive = globalIdx === currentStep;
-                const isComplete = globalIdx < currentStep;
-                return (
-                  <View key={step.key} style={styles.stepItem}>
-                    <View
-                      style={[
-                        styles.stepCircle,
-                        isActive && styles.stepCircleActive,
-                        isComplete && styles.stepCircleComplete,
-                      ]}
-                    >
-                      <Text style={styles.stepEmoji}>
-                        {isComplete ? "✓" : step.emoji}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        isActive && styles.stepLabelActive,
-                        isComplete && styles.stepLabelComplete,
-                      ]}
-                    >
-                      {step.label}
-                    </Text>
-                    {visIdx < visibleSteps.length - 1 && (
+      {/* Processing: queued state OR workflow stepper */}
+      {!isDone && !isError && !isCancelled && (
+        <View style={styles.section}>
+          {isPending ? (
+            /* Queued — simple standalone indicator */
+            <View style={styles.queuedRow}>
+              <ActivityIndicator size="small" color={colors.beamYellow} />
+              <Text style={styles.queuedText}>In queue…</Text>
+              <TouchableOpacity style={styles.stopBadge} onPress={handleCancel} activeOpacity={0.7}>
+                <Text style={styles.stopButtonText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Active workflow — 4-stage stepper */
+            <>
+              <View style={styles.stepper}>
+                {WORKFLOW_STEPS.map((step, i) => {
+                  const isActive = i === workflowStep;
+                  const isComplete = i < workflowStep;
+                  return (
+                    <View key={step.key} style={styles.stepItem}>
                       <View
                         style={[
-                          styles.stepLine,
-                          isComplete && styles.stepLineComplete,
+                          styles.stepCircle,
+                          isActive && styles.stepCircleActive,
+                          isComplete && styles.stepCircleComplete,
                         ]}
-                      />
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-            <ActivityIndicator
-              size="small"
-              color={colors.beamYellow}
-              style={{ marginTop: spacing.md }}
-            />
-          </View>
-        );
-      })()}
+                      >
+                        <Text style={styles.stepEmoji}>
+                          {isComplete ? "✓" : step.emoji}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.stepLabel,
+                          isActive && styles.stepLabelActive,
+                          isComplete && styles.stepLabelComplete,
+                        ]}
+                      >
+                        {step.label}
+                      </Text>
+                      {i < WORKFLOW_STEPS.length - 1 && (
+                        <View
+                          style={[
+                            styles.stepLine,
+                            isComplete && styles.stepLineComplete,
+                          ]}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.spinnerRow}>
+                <ActivityIndicator size="small" color={colors.beamYellow} />
+                <TouchableOpacity style={styles.stopBadge} onPress={handleCancel} activeOpacity={0.7}>
+                  <Text style={styles.stopButtonText}>Stop</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      )}
 
       {/* Error state */}
       {isError && (
@@ -341,8 +461,19 @@ export default function ScanDetailScreen() {
         </View>
       )}
 
-      {/* Results (only when done) */}
-      {isDone && scan.recommendationSummary && (
+      {/* Cancelled state (only when no previous results to show) */}
+      {isCancelled && !scan.recommendationSummary && (
+        <View style={styles.cancelledCard}>
+          <Text style={styles.cancelledEmoji}>&#x270B;</Text>
+          <Text style={styles.cancelledText}>Scan processing was stopped</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={rerunRecommendation}>
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Results (shown when recommendations exist, even during reprocessing) */}
+      {scan.recommendationSummary && (
         <View style={styles.section}>
           {/* 1. Heading */}
           <Text style={styles.sectionTitle}>
@@ -359,14 +490,18 @@ export default function ScanDetailScreen() {
             return (
               <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setSelectedPick(pick)}>
                 <View style={styles.bookCard}>
-                  {pick.crop_url && (
-                    <Image
-                      source={{ uri: getImageUrl(pick.crop_url) }}
-                      style={styles.bookCropThumb}
-                      resizeMode="cover"
-                    />
-                  )}
-                  {!pick.crop_url && (
+                  {pick.crop_url ? (
+                    <View style={styles.cropContainer}>
+                      <Image
+                        source={{ uri: getImageUrl(pick.crop_url) }}
+                        style={styles.bookCropThumb}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.rankBadgeMini}>
+                        <Text style={styles.rankTextMini}>{rank}</Text>
+                      </View>
+                    </View>
+                  ) : (
                     <View style={styles.rankBadge}>
                       <Text style={styles.rankText}>{rank}</Text>
                     </View>
@@ -406,36 +541,38 @@ export default function ScanDetailScreen() {
             <Text style={styles.recoText}>{scan.recommendationSummary}</Text>
           </View>
 
-          {/* 4. Note input + refresh */}
-          <View style={styles.commentRow}>
-            <TextInput
-              style={styles.commentInput}
-              value={comment}
-              onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
-              placeholder="Any special wishes? e.g. Something funny with animals..."
-              placeholderTextColor={colors.inkLight}
-              onBlur={saveComment}
-              returnKeyType="done"
-              onSubmitEditing={saveComment}
-            />
-            {savingComment ? (
-              <ActivityIndicator size="small" color={colors.beamYellow} />
-            ) : (
-              <Pressable
-                style={styles.refreshRecoButton}
-                onPress={rerunRecommendation}
-                // @ts-ignore – web-only: prevent blur from stealing the first click
-                onMouseDown={(e: any) => e.preventDefault()}
-              >
-                <Ionicons name="refresh" size={20} color={colors.inkDark} />
-              </Pressable>
-            )}
-          </View>
+          {/* 4. Note input + refresh (when done or cancelled with results) */}
+          {(isDone || isCancelled) && (
+            <View style={styles.commentRow}>
+              <TextInput
+                style={styles.commentInput}
+                value={comment}
+                onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
+                placeholder="Any special wishes? e.g. Something funny with animals..."
+                placeholderTextColor={colors.inkLight}
+                onBlur={saveComment}
+                returnKeyType="done"
+                onSubmitEditing={saveComment}
+              />
+              {savingComment ? (
+                <ActivityIndicator size="small" color={colors.beamYellow} />
+              ) : (
+                <Pressable
+                  style={styles.refreshRecoButton}
+                  onPress={rerunRecommendation}
+                  // @ts-ignore – web-only: prevent blur from stealing the first click
+                  onMouseDown={(e: any) => e.preventDefault()}
+                >
+                  <Ionicons name="refresh" size={20} color={colors.inkDark} />
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       )}
 
       {/* Note input while still processing (before results) */}
-      {!isDone && !isError && (
+      {!isDone && !isError && !isCancelled && (
         <View style={styles.section}>
           <View style={styles.commentRow}>
             <TextInput
@@ -480,14 +617,19 @@ export default function ScanDetailScreen() {
                   </Text>
                 </View>
 
-                {/* Cropped spine image */}
-                {selectedPick.crop_url && (
+                {/* Beam: shelf photo with highlighted book */}
+                {scan.imageUrl && selectedPick.obb && selectedPick.obb.length >= 3 ? (
+                  <BeamOverlay
+                    imageUrl={getImageUrl(scan.imageUrl)}
+                    obb={selectedPick.obb}
+                  />
+                ) : selectedPick.crop_url ? (
                   <Image
                     source={{ uri: getImageUrl(selectedPick.crop_url) }}
                     style={styles.modalCropImage}
                     resizeMode="contain"
                   />
-                )}
+                ) : null}
 
                 {/* Title & author */}
                 <Text style={styles.modalTitle}>{selectedPick.title}</Text>
@@ -606,6 +748,20 @@ const styles = StyleSheet.create({
     color: colors.inkDark,
   },
 
+  // Queued state
+  queuedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  queuedText: {
+    fontSize: 15,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkMedium,
+  },
+
   // Processing stepper
   stepper: {
     flexDirection: "row",
@@ -659,6 +815,48 @@ const styles = StyleSheet.create({
   },
   stepLineComplete: {
     backgroundColor: colors.pageTeal,
+  },
+
+  // Spinner + stop
+  spinnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  stopBadge: {
+    backgroundColor: colors.coralLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  stopButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.spineCoral,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // Cancelled
+  cancelledCard: {
+    margin: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.lg,
+    alignItems: "center",
+  },
+  cancelledEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.sm,
+  },
+  cancelledText: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
 
   // Error
@@ -782,11 +980,31 @@ const styles = StyleSheet.create({
   },
 
   // Book crop thumbnail in card
+  cropContainer: {
+    position: "relative",
+  },
   bookCropThumb: {
     width: 40,
     height: 56,
     borderRadius: radius.sm,
     backgroundColor: colors.bgWarm,
+  },
+  rankBadgeMini: {
+    position: "absolute",
+    top: -6,
+    left: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.beamYellow,
+    justifyContent: "center",
+    alignItems: "center",
+    ...shadows.button,
+  },
+  rankTextMini: {
+    fontSize: 11,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
   },
 
   // Modal
@@ -832,7 +1050,7 @@ const styles = StyleSheet.create({
   modalRankText: {
     fontSize: 16,
     fontFamily: fonts.heading,
-    color: colors.shelfBrown,
+    color: colors.inkDark,
   },
   modalCropImage: {
     width: 120,

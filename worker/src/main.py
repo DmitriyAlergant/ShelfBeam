@@ -16,10 +16,14 @@ import uuid
 
 import boto3
 import httpx
+import pillow_heif
 from PIL import Image
 import psycopg2
 
+pillow_heif.register_heif_opener()
+
 from pipeline import run_full_pipeline
+from pipeline.orchestrator import ScanCancelledException
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 API_BASE_URL = os.environ["API_BASE_URL"]
@@ -163,6 +167,21 @@ def recover_stale_scans():
         conn.close()
 
 
+def check_scan_cancelled(scan_id: str) -> bool:
+    """Check the database to see if this scan has been cancelled."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT processing_status FROM scan WHERE id = %s",
+                (scan_id,),
+            )
+            row = cur.fetchone()
+            return row is not None and row[0] == "cancelled"
+    finally:
+        conn.close()
+
+
 class TaskOrphanedError(Exception):
     """Raised when the backend returns 409 — this task has been superseded."""
 
@@ -281,10 +300,17 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         if db_status:
             patch_scan({"processing_status": db_status})
 
-    # Load image as base64
-    image_b64 = load_image_as_base64(image_url)
-    img = Image.open(io.BytesIO(base64.b64decode(image_b64)))
-    log.info("Loaded image %dx%d", img.width, img.height)
+    # Load image as base64, converting HEIC/non-JPEG to JPEG for downstream APIs
+    raw_b64 = load_image_as_base64(image_url)
+    img = Image.open(io.BytesIO(base64.b64decode(raw_b64)))
+    log.info("Loaded image %dx%d (format=%s)", img.width, img.height, img.format)
+    if img.format not in ("JPEG", "PNG"):
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=90)
+        image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        log.info("Converted %s -> JPEG for pipeline", img.format)
+    else:
+        image_b64 = raw_b64
 
     # Get reader context for personalized recommendations
     reader_context = "No reader profile available."
@@ -299,6 +325,7 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         is_base64=True,
         status_callback=status_callback,
         scan_id=scan_id,
+        cancellation_check=lambda: check_scan_cancelled(scan_id),
     )
 
     detected_books = result.get("detected_books", [])
@@ -386,6 +413,21 @@ async def main():
                     async def _run(sr=scan_row, tid=task_id):
                         try:
                             await process_scan(sr, tid)
+                        except ScanCancelledException:
+                            log.info("Scan %s was cancelled by user", sr["id"])
+                            try:
+                                await asyncio.to_thread(
+                                    sync_api_patch,
+                                    f"/api/scans/{sr['id']}",
+                                    {
+                                        "processing_status": "cancelled",
+                                        "processing_task_id": tid,
+                                    },
+                                )
+                            except TaskOrphanedError:
+                                log.info("Scan %s was reprocessed, not marking as cancelled", sr["id"])
+                            except Exception as patch_exc:
+                                log.error("Failed to mark scan %s as cancelled: %s", sr["id"], patch_exc)
                         except TaskOrphanedError:
                             log.info("Scan %s task %s was orphaned (reprocessed), skipping", sr["id"], tid)
                         except Exception as exc:

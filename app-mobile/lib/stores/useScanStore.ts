@@ -4,6 +4,7 @@ import {
   getScan,
   updateScan,
   deleteScan,
+  cancelScan,
   type ScanData,
 } from "../api";
 
@@ -21,6 +22,7 @@ type ScanStore = {
     data: Parameters<typeof updateScan>[2]
   ) => Promise<ScanData>;
   removeScan: (token: string, scanId: string) => Promise<void>;
+  cancelScan: (token: string, scanId: string) => void;
   patchScanLocal: (scanId: string, partial: Partial<ScanData>) => void;
   reset: () => void;
 };
@@ -66,6 +68,17 @@ export const useScanStore = create<ScanStore>((set, get) => ({
   removeScan: async (token, scanId) => {
     await deleteScan(token, scanId);
     set((s) => ({ scans: s.scans.filter((sc) => sc.id !== scanId) }));
+  },
+
+  cancelScan: (token, scanId) => {
+    // Optimistic: update local state immediately
+    set((s) => ({
+      scans: s.scans.map((sc) =>
+        sc.id === scanId ? { ...sc, processingStatus: "cancelled" } : sc
+      ),
+    }));
+    // Fire-and-forget API call
+    cancelScan(token, scanId).catch(() => {});
   },
 
   patchScanLocal: (scanId, partial) => {

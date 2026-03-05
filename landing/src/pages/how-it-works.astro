@@ -1,0 +1,463 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="How It Works - ShelfBeam Technical Overview">
+<div class="hiw">
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">ShelfBeam</a>
+      <h1 class="nav-title">Technical Overview</h1>
+    </div>
+  </nav>
+
+  <!-- ARCHITECTURE -->
+  <section class="section section-dark" style="padding-top: 6rem;">
+    <div class="container">
+      <p class="section-label center">Platform</p>
+      <h2 class="section-heading">Architecture Overview</h2>
+      <p class="section-sub center">A modular stack: mobile client, API backend, and async AI processing pipeline.</p>
+
+      <div class="arch-wrap">
+        <svg viewBox="0 0 900 355" fill="none" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
+          <defs>
+            <marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+              <path d="M0,0 L7,2.5 L0,5" fill="rgba(255,248,240,0.6)"/>
+            </marker>
+          </defs>
+
+          <!-- ── External Services separator ── -->
+          <line x1="638" y1="15" x2="638" y2="270" stroke="rgba(255,248,240,0.08)" stroke-width="1" stroke-dasharray="4 3"/>
+          <text x="770" y="22" text-anchor="middle" fill="rgba(255,248,240,0.25)" font-size="7.5" font-weight="600" letter-spacing="0.12em" font-family="Inter,sans-serif">EXTERNAL SERVICES</text>
+
+          <!-- ── Row 1: Mobile Client ── -->
+          <rect x="40" y="35" width="240" height="65" rx="8" fill="rgba(255,248,240,0.06)" stroke="rgba(255,248,240,0.25)" stroke-width="1"/>
+          <text x="160" y="60" text-anchor="middle" fill="#FFF8F0" font-size="14" font-weight="600" font-family="Inter,sans-serif">React Native + Expo</text>
+          <text x="160" y="80" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="'JetBrains Mono',monospace">TypeScript | Expo Router</text>
+
+          <!-- clerk.com (external) -->
+          <rect x="680" y="49" width="180" height="38" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.15)" stroke-width="0.75"/>
+          <text x="770" y="65" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">clerk.com</text>
+          <text x="770" y="79" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8" font-family="Inter,sans-serif">Authentication</text>
+
+          <!-- Arrow: Client -> clerk.com -->
+          <line x1="280" y1="68" x2="678" y2="68" stroke="rgba(255,248,240,0.2)" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+
+          <!-- Arrow: Client -> Express API -->
+          <line x1="160" y1="100" x2="160" y2="140" stroke="rgba(255,248,240,0.35)" stroke-width="1.5" marker-end="url(#ah)"/>
+
+          <!-- ── Row 2: Express API + Python Processing Worker ── -->
+          <rect x="40" y="142" width="240" height="122" rx="8" fill="rgba(255,248,240,0.06)" stroke="rgba(255,248,240,0.25)" stroke-width="1"/>
+          <text x="160" y="188" text-anchor="middle" fill="#FFF8F0" font-size="14" font-weight="600" font-family="Inter,sans-serif">Express API (BFF)</text>
+          <text x="160" y="208" text-anchor="middle" fill="rgba(255,248,240,0.55)" font-size="10" font-family="Inter,sans-serif">REST API | Auth | Scan Lifecycle</text>
+          <text x="160" y="226" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="'JetBrains Mono',monospace">Node.js | Drizzle ORM</text>
+
+          <rect x="355" y="142" width="240" height="122" rx="8" fill="rgba(255,248,240,0.06)" stroke="rgba(255,248,240,0.25)" stroke-width="1"/>
+          <text x="475" y="188" text-anchor="middle" fill="#FFF8F0" font-size="14" font-weight="600" font-family="Inter,sans-serif">Processing Worker</text>
+          <text x="475" y="208" text-anchor="middle" fill="rgba(255,248,240,0.55)" font-size="10" font-family="Inter,sans-serif">Detection | OCR | Normalize | Lookup | Recs</text>
+          <text x="475" y="226" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="'JetBrains Mono',monospace">Python | Async Workers | Open Library</text>
+
+          <!-- Arrow: Express -> Python -->
+          <line x1="282" y1="195" x2="353" y2="195" stroke="rgba(255,248,240,0.35)" stroke-width="1" marker-end="url(#ah)"/>
+          <!-- Arrow: Python -> Express (status updates, dashed) -->
+          <line x1="353" y1="215" x2="282" y2="215" stroke="rgba(255,248,240,0.25)" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#ah)"/>
+          <text x="318" y="230" text-anchor="middle" fill="rgba(255,248,240,0.3)" font-size="7" font-family="Inter,sans-serif">status updates</text>
+
+          <!-- Roboflow Inference (external) -->
+          <rect x="680" y="142" width="180" height="38" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.15)" stroke-width="0.75"/>
+          <text x="770" y="158" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">Roboflow Inference</text>
+          <text x="770" y="172" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8" font-family="Inter,sans-serif">Image Segmentation model</text>
+
+          <!-- HuggingFace Endpoints (external) -->
+          <rect x="680" y="184" width="180" height="38" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.15)" stroke-width="0.75"/>
+          <text x="770" y="200" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">HuggingFace Endpoints</text>
+          <text x="770" y="214" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8" font-family="Inter,sans-serif">OCR model (PaddleOCR-VL-1.5)</text>
+
+          <!-- Gemini LLM API (external) -->
+          <rect x="680" y="226" width="180" height="38" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.15)" stroke-width="0.75"/>
+          <text x="770" y="242" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">Gemini LLM API</text>
+          <text x="770" y="256" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8" font-family="Inter,sans-serif">gemini-3-flash-preview, gpt-5.2</text>
+
+          <!-- Horizontal arrows: Processing Worker -> external services -->
+          <line x1="597" y1="161" x2="678" y2="161" stroke="rgba(255,248,240,0.3)" stroke-width="1" marker-end="url(#ah)"/>
+          <line x1="597" y1="203" x2="678" y2="203" stroke="rgba(255,248,240,0.3)" stroke-width="1" marker-end="url(#ah)"/>
+          <line x1="597" y1="245" x2="678" y2="245" stroke="rgba(255,248,240,0.3)" stroke-width="1" marker-end="url(#ah)"/>
+
+          <!-- ── Row 3: Infrastructure (single row, no arrows) ── -->
+          <rect x="40" y="293" width="133" height="48" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.12)" stroke-width="0.75"/>
+          <text x="106" y="313" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">PostgreSQL</text>
+          <text x="106" y="328" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="Inter,sans-serif">Database</text>
+
+          <rect x="181" y="293" width="133" height="48" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.12)" stroke-width="0.75"/>
+          <text x="247" y="313" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">S3 / MinIO</text>
+          <text x="247" y="328" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="Inter,sans-serif">Image Storage</text>
+
+          <rect x="322" y="293" width="133" height="48" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.12)" stroke-width="0.75"/>
+          <text x="388" y="313" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">Docker Compose</text>
+          <text x="388" y="328" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="Inter,sans-serif">Local Development</text>
+
+          <rect x="463" y="293" width="132" height="48" rx="6" fill="rgba(255,248,240,0.04)" stroke="rgba(255,248,240,0.12)" stroke-width="0.75"/>
+          <text x="529" y="313" text-anchor="middle" fill="rgba(255,248,240,0.8)" font-size="11" font-weight="500" font-family="Inter,sans-serif">railway.com</text>
+          <text x="529" y="328" text-anchor="middle" fill="rgba(255,248,240,0.4)" font-size="8.5" font-family="Inter,sans-serif">Prod Deployment</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESSING PIPELINE DETAIL -->
+  <section class="section section-cream">
+    <div class="container">
+      <p class="section-label center">Pipeline</p>
+      <h2 class="section-heading">Processing Stages</h2>
+      <p class="section-sub center">When a user snaps a photo of a bookshelf, the image goes through a multi-stage pipeline.</p>
+
+      <div class="pipeline-grid">
+        <div class="pipe-card">
+          <div class="pipe-num">01</div>
+          <h3>Books Detection</h3>
+          <p>The shelf image is sent to a Roboflow-hosted model trained to detect individual book spines. Returns bounding box coordinates for each detected spine.</p>
+          <a href="https://universe.roboflow.com/library-books/fyp-obb-mnsh3/model/9" class="model-link" target="_blank" rel="noopener">View model on Roboflow &rarr;</a>
+        </div>
+
+        <div class="pipe-card">
+          <div class="pipe-num">02</div>
+          <h3>Spine Cropping</h3>
+          <p>Each detected bounding box is cropped from the original image and rotated left to appear horizontally, assuming the spine follows top-to-bottom orientation (standard in US/English typography).</p>
+        </div>
+
+        <div class="pipe-card">
+          <div class="pipe-num">03</div>
+          <h3>OCR</h3>
+          <p>Each spine crop is processed through PaddleOCR-VL-1.5, a vision-language OCR model deployed on a custom HuggingFace inference endpoint with an NVIDIA T4 GPU. Extracts title and author text from book spines.</p>
+          <a href="https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.5" class="model-link" target="_blank" rel="noopener">View model on HuggingFace &rarr;</a>
+        </div>
+
+        <div class="pipe-card">
+          <div class="pipe-num">04</div>
+          <h3>Title Normalization</h3>
+          <p>Raw OCR text is cleaned and normalized via Gemini 3 Flash Preview in batches of 20 items to extract structured title + author pairs. Handles erroneous reads, non-title content, duplicates, and series. Attempts to split titles when object detection failed to separate two books.</p>
+        </div>
+
+        <div class="pipe-card">
+          <div class="pipe-num">05</div>
+          <h3>Metadata Lookup <span class="wip-badge">WIP</span></h3>
+          <p>Normalized titles are looked up against Hardcover API and Google Books free APIs to retrieve cover images, descriptions, genres, and ISBNs.</p>
+        </div>
+
+        <div class="pipe-card pipe-card-highlight">
+          <div class="pipe-num">06</div>
+          <h3>AI Recommendations</h3>
+          <p>GPT-5.2 reviews all detected books against the reader's profile (age, interests, reading history, past reactions) to generate personalized recommendations with explanations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="section section-dark">
+    <div class="container">
+      <p class="section-label center">Roadmap</p>
+      <h2 class="section-heading">What's Next</h2>
+      <p class="section-sub center">Active areas of development and exploration.</p>
+
+      <div class="roadmap-grid">
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          </div>
+          <h3>Enrich Books with Catalog Content</h3>
+          <p>Improve RAG pipeline for enriching books with descriptions, ratings, and cover thumbnails from catalog sources.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <h3>Children's Book Metadata APIs</h3>
+          <p>Find and contract API sources for lexile scores, grade bands, reading levels, and other children's book metadata.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+          </div>
+          <h3>Alternative OCR Models</h3>
+          <p>Experiment with alternative OCR models to find more cost-effective ways to extract text from book spines.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3"/></svg>
+          </div>
+          <h3>Fine-Tune Image Segmentation</h3>
+          <p>Train our own model on Roboflow to exclude partially cropped and out-of-focus books from detection results.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          </div>
+          <h3>App Store & Monetization</h3>
+          <p>Publish to the App Store with production configurations for Expo and Clerk. Add monetization layer.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+          </div>
+          <h3>Premium Agentic Workflows</h3>
+          <p>AI using web search, reading partial epub snippets from Google Books, and other advanced research capabilities.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container center">
+      <p class="footer-logo">ShelfBeam</p>
+      <p class="footer-sub">Built at T1A Hackathon 2026 &middot; <a href="/">Home</a></p>
+      <p class="footer-copy">&copy; Team TBD &mdash; Dmitriy Alergant, Evgeniy Vyshnevyi</p>
+    </div>
+  </footer>
+
+</div>
+</Base>
+
+<style is:global>
+  /* ── NAV ──────────────────────────────────────────────────────── */
+  .hiw .nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(45, 35, 25, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255, 248, 240, 0.1);
+  }
+
+  .hiw .nav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .hiw .nav-logo {
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: -0.03em;
+    color: #FFD234 !important;
+    text-decoration: none !important;
+  }
+
+  .hiw .nav-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: rgba(255, 248, 240, 0.85);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  .hiw .section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #FFD234;
+    margin-bottom: 0.75rem;
+  }
+
+  .hiw .section-heading {
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: #FFF8F0;
+    text-align: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .hiw .section-sub {
+    font-size: 0.9375rem;
+    color: rgba(255, 248, 240, 0.55);
+    max-width: 600px;
+    margin: 0 auto 3rem;
+  }
+
+  .hiw .section-cream .section-heading {
+    color: #2D2319;
+  }
+
+  .hiw .section-cream .section-sub {
+    color: #7A6B5D;
+  }
+
+  .hiw .section-cream .section-label {
+    color: #8B6914;
+  }
+
+  .hiw h1 { margin: 0; }
+
+  .hiw .subtitle {
+    font-size: 1rem;
+    color: rgba(255, 248, 240, 0.55);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ── Architecture SVG ────────────────────────────────────────── */
+  .hiw .arch-wrap {
+    padding: 1rem 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hiw .arch-svg {
+    width: 100%;
+    height: auto;
+    min-width: 680px;
+    display: block;
+    filter: brightness(1.05) saturate(1.04);
+  }
+
+  /* ── Pipeline Grid ───────────────────────────────────────────── */
+  .hiw .pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .hiw .pipe-card {
+    background: #F5EDE3;
+    border: 1px solid rgba(45, 35, 25, 0.08);
+    border-radius: 10px;
+    padding: 1.75rem;
+    transition: border-color 0.2s ease;
+  }
+
+  .hiw .pipe-card:hover {
+    border-color: rgba(139, 105, 20, 0.25);
+  }
+
+  .hiw .pipe-card-highlight {
+    border-color: rgba(255, 210, 52, 0.4);
+    background: linear-gradient(135deg, #F5EDE3 0%, rgba(255, 210, 52, 0.08) 100%);
+  }
+
+  .hiw .pipe-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #8B6914;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.75rem;
+  }
+
+  .hiw .pipe-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #2D2319;
+    margin-bottom: 0.5rem;
+  }
+
+  .hiw .pipe-card p {
+    font-size: 0.875rem;
+    color: #7A6B5D;
+    line-height: 1.65;
+    margin-bottom: 1rem;
+  }
+
+  /* ── WIP Badge ───────────────────────────────────────────────── */
+  .hiw .wip-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255, 210, 52, 0.2);
+    color: #8B6914;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+  }
+
+  /* ── Model Link ──────────────────────────────────────────────── */
+  .hiw .model-link {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #8B6914;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .hiw .model-link:hover {
+    color: #2D2319;
+    text-decoration: underline;
+  }
+
+  /* ── Roadmap Grid ────────────────────────────────────────────── */
+  .hiw .roadmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .hiw .roadmap-item {
+    background: rgba(255, 248, 240, 0.04);
+    border: 1px solid rgba(255, 248, 240, 0.1);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: border-color 0.2s ease;
+  }
+
+  .hiw .roadmap-item:hover {
+    border-color: rgba(255, 210, 52, 0.25);
+  }
+
+  .hiw .roadmap-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 248, 240, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 248, 240, 0.04);
+    margin-bottom: 1rem;
+    color: #FFD234;
+  }
+
+  .hiw .roadmap-item h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #FFF8F0;
+    margin-bottom: 0.5rem;
+  }
+
+  .hiw .roadmap-item p {
+    font-size: 0.875rem;
+    color: rgba(255, 248, 240, 0.55);
+    line-height: 1.65;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────── */
+  .hiw .footer-copy {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    color: #7A6B5D;
+  }
+</style>

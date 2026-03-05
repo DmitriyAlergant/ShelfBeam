@@ -14,11 +14,11 @@ An app helping kids choose books to read from a library bookshelf. Snap a pic of
 
 ```bash
 # 1. Configure environment
-cp .env.example .env   
+cp .env.example .env
 
-# 2. Fill in Clerk keys and LLM endpoint
+# 2. Fill in Clerk keys, LLM endpoint, Roboflow key, and OCR backend settings
 
-# 3. Start backend services (Postgres + Express API)
+# 3. Start backend services (Postgres, MinIO, Express API, Worker, Landing)
 docker compose up
 
 # 4. Start Expo (separate terminal, on host Mac — not in Docker)
@@ -37,13 +37,24 @@ EXPO_PUBLIC_API_URL=http://<your-mac-local-ip>:3000
 
 Then restart Expo (`npx expo start --clear`) so it picks up the new value.
 
+## Pipeline
+
+The worker runs a 4-stage pipeline on each scanned bookshelf image:
+
+1. **Detect** — Roboflow object detection model (`fyp-obb-mnsh3/9`) finds individual book spines
+2. **OCR** — Extracts text from each crop. Backends: `hf` (HuggingFace PaddleOCR-VL endpoint, recommended), `llm` (Vision LLM), `mlx` (local PaddleOCR-VL), `easyocr`
+3. **Normalize** — LLM cleans up OCR text into structured title/author (`gemini-3-flash-preview`)
+4. **Recommend** — LLM generates personalized recommendations based on reader profile (`gpt-5.2`)
+
+All LLM calls go through an OpenAI-compatible proxy (e.g. LiteLLM) configured via `OPENAI_BASE_URL`.
+
 ## Testing
 
 ```bash
 # Backend API tests
 cd app-backend && npm test
 
-# Python pipeline tests (when available)
+# Python pipeline tests
 cd worker && pytest
 ```
 
@@ -52,11 +63,18 @@ cd worker && pytest
 ```
 ShelfBeam/
 ├── app-mobile/      # Expo + React Native app
-├── app-backend/     # Express API + Drizzle ORM
+├── app-backend/     # Express API + Drizzle ORM (BFF)
+├── worker/          # Python pipeline (detect → OCR → normalize → recommend)
+├── landing/         # Astro landing page with QR codes
 ├── designs/         # Screen maps, data model, design guidelines
+├── docs/            # Deployment guides
 ├── docker-compose.yml
 └── .env.example
 ```
+
+## Deployment
+
+Production runs on Railway (not Docker Compose). See [Railway Deployment Guide](./docs/railway-deploy.md).
 
 ## Design Docs
 

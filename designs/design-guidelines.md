@@ -83,7 +83,7 @@ The scan pipeline (`detecting → reading → looking_up → recommending → do
 - Horizontal stepper with small book icons
 - Active step has the golden beam glow
 - Completed steps get a warm checkmark
-- Each step has a kid-friendly label: "Finding books..." → "Reading spines..." → "Learning about them..." → "Picking favorites..."
+- Each step has a kid-friendly label: "Noticing books..." → "Reading spines..." → "Learning about them..." → "Picking favorites..."
 
 ---
 

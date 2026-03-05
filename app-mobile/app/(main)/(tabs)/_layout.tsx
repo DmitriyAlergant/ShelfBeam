@@ -8,9 +8,9 @@ import { Redirect } from "expo-router";
 import { ProfileSwitcher } from "../../../components/ProfileSwitcher";
 
 const TAB_META: Record<string, { emoji: string }> = {
-  index: { emoji: "👤" },
-  books: { emoji: "📚" },
+  index: { emoji: "📚" },
   scan: { emoji: "🔍" },
+  profile: { emoji: "👤" },
 };
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -74,15 +74,15 @@ export default function TabsLayout() {
       >
         <Tabs.Screen
           name="index"
-          options={{ title: "Profile" }}
-        />
-        <Tabs.Screen
-          name="books"
           options={{ title: "Reading History" }}
         />
         <Tabs.Screen
           name="scan"
           options={{ title: "Scans" }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{ title: "Profile" }}
         />
         <Tabs.Screen
           name="scan-detail"

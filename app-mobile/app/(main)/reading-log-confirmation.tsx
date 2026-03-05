@@ -127,7 +127,7 @@ export default function ReadingLogConfirmationScreen() {
 
       // Navigate back to books tab
       router.dismissAll();
-      router.replace("/(main)/(tabs)/books");
+      router.replace("/(main)/(tabs)");
     } catch {
       Alert.alert("Error", "Failed to save reading log. Please try again.");
     } finally {

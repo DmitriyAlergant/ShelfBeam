@@ -14,9 +14,11 @@ from .utils import load_image_to_pil, pil_to_base64
 
 log = logging.getLogger("pipeline.detect")
 
-MODEL_ID = "open-shelves/9"
-ROBOFLOW_API_URL = "https://serverless.roboflow.com"
+MODEL_ID = os.environ["ROBOFLOW_MODEL_ID"]
+ROBOFLOW_API_URL = os.environ["ROBOFLOW_API_URL"]
 CONFIDENCE_THRESHOLD = 0.4
+ROBOFLOW_TIMEOUT = int(os.environ["ROBOFLOW_TIMEOUT_SECONDS"])
+ROBOFLOW_RETRIES = int(os.environ["ROBOFLOW_RETRIES"])
 
 
 def _infer_roboflow(image_path_or_b64: str, is_base64: bool = False) -> list[dict]:
@@ -29,16 +31,25 @@ def _infer_roboflow(image_path_or_b64: str, is_base64: bool = False) -> list[dic
     }
 
     if is_base64:
-        resp = requests.post(url, params=params, data=image_path_or_b64, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=60)
+        payload = image_path_or_b64
     else:
         with open(image_path_or_b64, "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode("utf-8")
-        resp = requests.post(url, params=params, data=img_b64, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=60)
+            payload = base64.b64encode(f.read()).decode("utf-8")
 
-    resp.raise_for_status()
-    data = resp.json()
-    log.debug("Roboflow raw response: %s", json.dumps(data, indent=2))
-    return data.get("predictions", [])
+    last_exc = None
+    for attempt in range(1, ROBOFLOW_RETRIES + 1):
+        try:
+            log.info("Roboflow request attempt %d/%d (timeout=%ds)", attempt, ROBOFLOW_RETRIES, ROBOFLOW_TIMEOUT)
+            resp = requests.post(url, params=params, data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=ROBOFLOW_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            log.debug("Roboflow raw response: %s", json.dumps(data, indent=2))
+            return data.get("predictions", [])
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            last_exc = exc
+            log.warning("Roboflow attempt %d/%d failed: %s", attempt, ROBOFLOW_RETRIES, exc)
+
+    raise last_exc
 
 
 def _min_area_rect(points: list[dict]) -> tuple[np.ndarray, float, tuple[float, float]]:

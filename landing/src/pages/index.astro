@@ -1,0 +1,514 @@
+---
+import Base from '../layouts/Base.astro';
+import QRCode from 'qrcode';
+
+const iosUrl = import.meta.env.LANDING_IOS_QR_URL || '';
+const androidUrl = import.meta.env.LANDING_ANDROID_QR_URL || '';
+
+const qrOptions = {
+  width: 200,
+  margin: 1,
+  color: { dark: '#2D2319', light: '#FFF8F0' },
+};
+
+const iosQr = iosUrl ? await QRCode.toDataURL(iosUrl, qrOptions) : '';
+const androidQr = androidUrl ? await QRCode.toDataURL(androidUrl, qrOptions) : '';
+---
+
+<Base title="ShelfBeam - Snap a Shelf, Find Your Next Read">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-image-wrap">
+      <img src="/hero.jpeg" alt="ShelfBeam - magical bookshelf with golden light" class="hero-img" />
+      <div class="hero-overlay"></div>
+    </div>
+    <div class="hero-content">
+      <h1 class="logo">ShelfBeam</h1>
+      <p class="tagline">Snap a shelf. Find your next read.</p>
+      <div class="hackathon-badge">T1A Hackathon 2026</div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="section section-cream">
+    <div class="container">
+      <h2>The Problem</h2>
+      <div class="cards-row">
+        <div class="card">
+          <span class="card-icon">📚</span>
+          <h3>Kids read paper books</h3>
+          <p>And that's wonderful. But finding the next good read that a kid would actually trust and enjoy? That's the hard part.</p>
+        </div>
+        <div class="card">
+          <span class="card-icon">🏛️</span>
+          <h3>Public libraries still exist!</h3>
+          <p>Millions of books on real shelves, free to borrow. But standing in front of hundreds of spines can be overwhelming.</p>
+        </div>
+        <div class="card">
+          <span class="card-icon">🤔</span>
+          <h3>How to choose?</h3>
+          <p>Ask a librarian? Browse randomly? Check ratings online, then hope the book is available? There has to be a better way.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE OLD WAY vs OUR WAY -->
+  <section class="section section-warm">
+    <div class="container">
+      <h2>A Better Way</h2>
+      <div class="compare">
+        <div class="compare-old">
+          <h3>The old way</h3>
+          <ol>
+            <li>Search GPT / rating charts for book ideas</li>
+            <li>Check what's available at the library<br/>— popular books are checked out</li>
+            <li>Find the right shelf alphabetically</li>
+            <li>Find the book on the shelf alphabetically</li>
+          </ol>
+          <p class="compare-verdict">Tedious.</p>
+        </div>
+        <div class="compare-arrow">
+          <span>vs</span>
+        </div>
+        <div class="compare-new">
+          <h3>The ShelfBeam way</h3>
+          <ol>
+            <li>Walk up to any shelf</li>
+            <li>Snap a photo</li>
+            <li>Get recommendations instantly</li>
+            <li>Track what you read for better personalization</li>
+          </ol>
+          <p class="compare-verdict beam-glow">Beam the shelf.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS (User Story) -->
+  <section class="section section-cream">
+    <div class="container">
+      <h2>How It Works</h2>
+      <div class="user-story">
+        <div class="story-step">
+          <div class="story-number">1</div>
+          <div class="story-content">
+            <h3>Create Reader Profiles</h3>
+            <p>Welcome, families! Set up profiles for each reader in your household. One account, many readers.</p>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="story-number">2</div>
+          <div class="story-content">
+            <h3>Tell Us About the Reader</h3>
+            <p>Add basic info: age, reading level, and interests. This helps ShelfBeam understand what kind of books to recommend.</p>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="story-number">3</div>
+          <div class="story-content">
+            <h3>Add Reading History</h3>
+            <p>Optionally share books you've already read and your reactions. Just describe how you felt about a book in your own words &mdash; our AI understands free-form feedback to learn your tastes.</p>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="story-number">4</div>
+          <div class="story-content">
+            <h3>Snap a Shelf</h3>
+            <p>At the library, take a photo of any bookshelf. ShelfBeam's AI detects every book spine, reads the titles, and looks up each book automatically.</p>
+          </div>
+        </div>
+        <div class="story-step">
+          <div class="story-number">5</div>
+          <div class="story-content">
+            <h3>Get Personalized Picks</h3>
+            <p>Within seconds, see which books on that shelf are the best match for your reader &mdash; with explanations of why each book was recommended.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tech-link-wrap">
+        <a href="/how-it-works" class="tech-link">Technical overview &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRY IT / QR -->
+  <section class="section section-warm">
+    <div class="container center">
+      <h2>Try It Now</h2>
+      <p class="try-subtitle">First, install the <strong>Expo Go</strong> app on your phone:</p>
+      <div class="store-links">
+        <a href="https://apps.apple.com/app/expo-go/id982107779" target="_blank" rel="noopener" class="store-btn">
+          App Store (iOS)
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=host.exp.exponent" target="_blank" rel="noopener" class="store-btn">
+          Google Play (Android)
+        </a>
+      </div>
+      <p class="try-subtitle">Then scan the QR code for your platform to open ShelfBeam:</p>
+      <div class="qr-cards">
+        <div class="qr-card">
+          <h3>iOS & Android</h3>
+          <p class="qr-method-highlight">Open with Expo Go</p>
+          {iosQr ? (
+            <img src={iosQr} alt="Expo Go QR Code" class="qr-img" width="200" height="200" />
+          ) : (
+            <div class="qr-box"><span>Not configured</span></div>
+          )}
+        </div>
+        <div class="qr-card">
+          <h3>Android</h3>
+          <p class="qr-method-highlight">Native app install</p>
+          {androidQr ? (
+            <img src={androidQr} alt="Android QR Code" class="qr-img" width="200" height="200" />
+          ) : (
+            <div class="qr-box"><span>Not configured</span></div>
+          )}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container center">
+      <p class="footer-logo">ShelfBeam</p>
+      <p class="footer-sub">Built at T1A Hackathon 2026 &middot; <a href="/how-it-works">How It Works</a></p>
+      <p class="footer-copy">&copy; Team TBD &mdash; Dmitriy Alergant, Evgeniy Vyshnevyi</p>
+    </div>
+  </footer>
+
+</Base>
+
+<style>
+  /* ========== HERO ========== */
+  .hero {
+    position: relative;
+    height: 100vh;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .hero-image-wrap {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(45, 35, 25, 0.3) 0%,
+      rgba(45, 35, 25, 0.15) 40%,
+      rgba(45, 35, 25, 0.5) 80%,
+      rgba(45, 35, 25, 0.8) 100%
+    );
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    color: #FFF8F0;
+    padding: 2rem;
+  }
+
+  .logo {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 700;
+    text-shadow: 0 4px 24px rgba(45, 35, 25, 0.5);
+    margin-bottom: 0.5rem;
+  }
+
+  .tagline {
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    font-weight: 600;
+    text-shadow: 0 2px 12px rgba(45, 35, 25, 0.5);
+    margin-bottom: 1.5rem;
+  }
+
+  .hackathon-badge {
+    display: inline-block;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: rgba(255, 210, 52, 0.9);
+    color: #2D2319;
+    padding: 0.5rem 1.5rem;
+    border-radius: 24px;
+  }
+
+  /* ========== PROBLEM CARDS ========== */
+  .cards-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .card {
+    background: #F5EDE3;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 16px rgba(45, 35, 25, 0.08);
+  }
+
+  .card-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  .card h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card p {
+    color: #7A6B5D;
+  }
+
+  /* ========== COMPARE ========== */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 2rem;
+    align-items: stretch;
+  }
+
+  @media (max-width: 768px) {
+    .compare {
+      grid-template-columns: 1fr;
+    }
+    .compare-arrow {
+      justify-self: center;
+    }
+  }
+
+  .compare-old, .compare-new {
+    background: #FFF8F0;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 16px rgba(45, 35, 25, 0.08);
+  }
+
+  .compare-old {
+    background: #F0E6D9;
+    border: 2px solid #E0D4C6;
+  }
+
+  .compare-new {
+    border: 3px solid #FFD234;
+  }
+
+  .compare h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .compare ol {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .compare li {
+    margin-bottom: 0.4rem;
+    color: #7A6B5D;
+  }
+
+  .compare-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .compare-arrow span {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #B8A99A;
+  }
+
+  .compare-verdict {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #7A6B5D;
+  }
+
+  .beam-glow {
+    color: #8B6914;
+    text-shadow: 0 0 20px rgba(255, 210, 52, 0.6);
+  }
+
+  /* ========== USER STORY STEPS ========== */
+  .user-story {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .story-step {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+  }
+
+  .story-number {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #FFD234;
+    color: #2D2319;
+    font-weight: 700;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(255, 210, 52, 0.3);
+  }
+
+  .story-content {
+    flex: 1;
+  }
+
+  .story-content h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .story-content p {
+    color: #7A6B5D;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .tech-link-wrap {
+    text-align: center;
+    margin-top: 2.5rem;
+  }
+
+  .tech-link {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #8B6914;
+    text-decoration: none;
+    padding: 0.6rem 1.5rem;
+    border: 2px solid #8B6914;
+    border-radius: 12px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .tech-link:hover {
+    background: #8B6914;
+    color: #FFF8F0;
+    text-decoration: none;
+  }
+
+  /* ========== QR SECTION ========== */
+  .try-subtitle {
+    color: #7A6B5D;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+  }
+
+  .try-subtitle strong {
+    color: #2D2319;
+  }
+
+  .store-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .store-btn {
+    display: inline-flex;
+    align-items: center;
+    background: #2D2319;
+    color: #FFF8F0;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .store-btn:hover {
+    opacity: 0.85;
+    text-decoration: none;
+    color: #FFF8F0;
+  }
+
+  .qr-cards {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .qr-card {
+    background: #FFF8F0;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 4px 16px rgba(45, 35, 25, 0.08);
+    text-align: center;
+  }
+
+  .qr-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .qr-method {
+    font-size: 0.85rem;
+    color: #B8A99A;
+    margin-bottom: 1rem;
+  }
+
+  .qr-method-highlight {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #8B6914;
+    margin-bottom: 1rem;
+  }
+
+  .qr-img {
+    border-radius: 8px;
+  }
+
+  .qr-box {
+    width: 200px;
+    height: 200px;
+    border: 3px dashed #B8A99A;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #B8A99A;
+    font-size: 0.9rem;
+  }
+
+  /* ========== FOOTER ========== */
+  .footer-copy {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    color: #7A6B5D;
+  }
+</style>
