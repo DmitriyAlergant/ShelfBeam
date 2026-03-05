@@ -60,7 +60,8 @@ export default function ProfileScreen() {
 
   const [name, setName] = useState("");
   const [avatarKey, setAvatarKey] = useState("");
-  const [birthYear, setBirthYear] = useState("");
+  const [age, setAge] = useState<number | null>(null);
+  const [grade, setGrade] = useState<number | null>(null);
   const [gender, setGender] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
@@ -79,7 +80,8 @@ export default function ProfileScreen() {
     setInitializedProfileId(activeProfile.id);
     setName(activeProfile.name || "");
     setAvatarKey(activeProfile.avatarKey || activeProfile.name);
-    setBirthYear(activeProfile.birthYear ? String(activeProfile.birthYear) : "");
+    setAge(activeProfile.age ?? null);
+    setGrade(activeProfile.grade ?? null);
     setGender(activeProfile.gender || "");
     setLanguages(activeProfile.languages || []);
     setInterests(activeProfile.interests || []);
@@ -92,14 +94,14 @@ export default function ProfileScreen() {
     const p = activeProfile;
     if ((name || "") !== (p.name || "")) return true;
     if ((avatarKey || "") !== (p.avatarKey || p.name || "")) return true;
-    const yr = parseInt(birthYear, 10);
-    if ((yr || null) !== (p.birthYear || null)) return true;
+    if ((age ?? null) !== (p.age ?? null)) return true;
+    if ((grade ?? null) !== (p.grade ?? null)) return true;
     if ((gender || "") !== (p.gender || "")) return true;
     if (JSON.stringify(languages) !== JSON.stringify(p.languages || [])) return true;
     if (JSON.stringify(interests) !== JSON.stringify(p.interests || [])) return true;
     if ((notes || "") !== (p.notes || "")) return true;
     return false;
-  }, [activeProfile, name, avatarKey, birthYear, gender, languages, interests, notes]);
+  }, [activeProfile, name, avatarKey, age, grade, gender, languages, interests, notes]);
 
   const saveAll = useCallback(async () => {
     if (!activeProfile) return;
@@ -107,11 +109,11 @@ export default function ProfileScreen() {
     if (!token) return;
     setSaving(true);
     try {
-      const yr = parseInt(birthYear, 10);
       const updated = await updateProfile(token, activeProfile.id, {
         name: name.trim(),
         avatar_key: avatarKey,
-        birth_year: (yr && yr >= 2000 && yr <= new Date().getFullYear()) ? yr : activeProfile.birthYear,
+        age: age ?? undefined,
+        grade: grade ?? undefined,
         gender: gender || null,
         languages,
         interests,
@@ -121,7 +123,8 @@ export default function ProfileScreen() {
       // Re-sync local state with normalized values so isDirty resets
       setName(updated.name || "");
       setAvatarKey(updated.avatarKey || updated.name || "");
-      setBirthYear(updated.birthYear ? String(updated.birthYear) : "");
+      setAge(updated.age ?? null);
+      setGrade(updated.grade ?? null);
       setGender(updated.gender || "");
       setLanguages(updated.languages || []);
       setInterests(updated.interests || []);
@@ -129,7 +132,7 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [activeProfile, getToken, setActiveProfile, name, avatarKey, birthYear, gender, languages, interests, notes]);
+  }, [activeProfile, getToken, setActiveProfile, name, avatarKey, age, grade, gender, languages, interests, notes]);
 
   // Register save action in top bar via context
   const saveAllRef = useRef(saveAll);
@@ -253,19 +256,78 @@ export default function ProfileScreen() {
           />
         </View>
 
-        {/* Birth Year */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Birth Year</Text>
-          <TextInput
-            style={styles.textInput}
-            value={birthYear}
-            onChangeText={setBirthYear}
-            placeholder="e.g. 2016"
-            placeholderTextColor={colors.inkLight}
-            keyboardType="number-pad"
-            maxLength={4}
-            returnKeyType="done"
-          />
+        {/* Age & Grade */}
+        <View style={styles.ageGradeRow}>
+          <View style={styles.ageGradeCell}>
+            <Text style={styles.label}>Age</Text>
+            <View style={styles.stepperRow}>
+              <TouchableOpacity
+                style={[styles.stepperBtn, age !== null && age <= 3 && styles.stepperBtnDisabled]}
+                onPress={() => {
+                  const cur = age ?? 8;
+                  const next = cur === 99 ? 18 : Math.max(3, cur - 1);
+                  setAge(next);
+                  if (grade === null) {
+                    setGrade(next >= 18 ? 99 : Math.max(0, Math.min(12, next - 5)));
+                  } else if (cur === 99) {
+                    setGrade(12);
+                  } else if (grade === 99) {
+                    // keep N/A
+                  } else if (grade > 0) {
+                    setGrade(grade - 1);
+                  }
+                }}
+                disabled={age !== null && age <= 3}
+              >
+                <Text style={styles.stepperBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>{age === null ? "-" : age === 99 ? "Adult" : age}</Text>
+              <TouchableOpacity
+                style={[styles.stepperBtn, age !== null && age >= 99 && styles.stepperBtnDisabled]}
+                onPress={() => {
+                  const cur = age ?? 8;
+                  const next = cur >= 18 ? 99 : cur + 1;
+                  setAge(next);
+                  if (grade === null) {
+                    setGrade(next === 99 ? 99 : Math.max(0, Math.min(12, next - 5)));
+                  } else if (next === 99) {
+                    setGrade(99);
+                  } else if (grade < 12) {
+                    setGrade(grade + 1);
+                  }
+                }}
+                disabled={age !== null && age >= 99}
+              >
+                <Text style={styles.stepperBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.ageGradeCell}>
+            <Text style={styles.label}>Grade</Text>
+            <View style={styles.stepperRow}>
+              <TouchableOpacity
+                style={[styles.stepperBtn, grade !== null && grade <= 0 && styles.stepperBtnDisabled]}
+                onPress={() => {
+                  const cur = grade ?? 3;
+                  setGrade(cur === 99 ? 12 : Math.max(0, cur - 1));
+                }}
+                disabled={grade !== null && grade <= 0}
+              >
+                <Text style={styles.stepperBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>{grade === null ? "-" : grade === 0 ? "K" : grade === 99 ? "N/A" : grade}</Text>
+              <TouchableOpacity
+                style={[styles.stepperBtn, grade !== null && grade >= 99 && styles.stepperBtnDisabled]}
+                onPress={() => {
+                  const cur = grade ?? 3;
+                  setGrade(cur >= 12 ? 99 : cur + 1);
+                }}
+                disabled={grade !== null && grade >= 99}
+              >
+                <Text style={styles.stepperBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Gender */}
@@ -519,6 +581,42 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 100,
     lineHeight: 22,
+  },
+  ageGradeRow: {
+    flexDirection: "row",
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  ageGradeCell: {
+    flex: 1,
+  },
+  stepperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgWarm,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepperBtnDisabled: {
+    opacity: 0.3,
+  },
+  stepperBtnText: {
+    fontSize: 18,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+  },
+  stepperValue: {
+    fontSize: 22,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
+    minWidth: 32,
+    textAlign: "center",
   },
   chipRow: {
     flexDirection: "row",

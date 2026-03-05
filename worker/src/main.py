@@ -207,8 +207,12 @@ def get_reader_context(profile_id: str) -> str:
     parts = []
     if profile.get("name"):
         parts.append(f"Reader name: {profile['name']}")
-    if profile.get("birthYear"):
-        parts.append(f"Birth year: {profile['birthYear']}")
+    if profile.get("age"):
+        parts.append(f"Age: {'Adult' if profile['age'] == 99 else profile['age']}")
+    if profile.get("grade") is not None:
+        grade_val = profile["grade"]
+        grade_display = "N/A" if grade_val == 99 else ("K" if grade_val == 0 else str(grade_val))
+        parts.append(f"Grade: {grade_display}")
     if profile.get("interests"):
         parts.append(f"Interests: {', '.join(profile['interests'])}")
     if profile.get("languages"):

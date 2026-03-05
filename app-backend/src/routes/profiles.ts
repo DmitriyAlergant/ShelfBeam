@@ -23,7 +23,7 @@ router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) 
   const user = await resolveAppUser(req, res);
   if (!user) return;
 
-  const { name, avatar_key, birth_year, gender, languages, interests } = req.body;
+  const { name, avatar_key, age, grade, gender, languages, interests } = req.body;
 
   const inserted = await db
     .insert(readerProfile)
@@ -31,7 +31,8 @@ router.post("/api/profiles", requireAuth(), async (req: Request, res: Response) 
       userId: user.id,
       name,
       avatarKey: avatar_key,
-      birthYear: birth_year,
+      age,
+      grade,
       gender,
       languages,
       interests,
@@ -64,12 +65,13 @@ router.patch("/api/profiles/:id", requireAuth(), async (req: Request, res: Respo
   const user = await resolveAppUser(req, res);
   if (!user) return;
 
-  const { name, avatar_key, birth_year, gender, languages, interests, notes } = req.body;
+  const { name, avatar_key, age, grade, gender, languages, interests, notes } = req.body;
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (name !== undefined) updates.name = name;
   if (avatar_key !== undefined) updates.avatarKey = avatar_key;
-  if (birth_year !== undefined) updates.birthYear = birth_year;
+  if (age !== undefined) updates.age = age;
+  if (grade !== undefined) updates.grade = grade;
   if (gender !== undefined) updates.gender = gender;
   if (languages !== undefined) updates.languages = languages;
   if (interests !== undefined) updates.interests = interests;

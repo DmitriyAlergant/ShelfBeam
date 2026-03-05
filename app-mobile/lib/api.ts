@@ -95,7 +95,8 @@ export type ProfileData = {
   userId: string;
   name: string;
   avatarKey: string | null;
-  birthYear: number | null;
+  age: number | null;
+  grade: number | null;
   gender: string | null;
   languages: string[] | null;
   interests: string[] | null;
@@ -132,7 +133,8 @@ export function updateProfile(
   data: Partial<{
     name: string;
     avatar_key: string;
-    birth_year: number;
+    age: number;
+    grade: number;
     gender: string;
     languages: string[];
     interests: string[];
