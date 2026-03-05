@@ -6,6 +6,7 @@ import {
   Image,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -420,9 +421,14 @@ export default function ScanDetailScreen() {
             {savingComment ? (
               <ActivityIndicator size="small" color={colors.beamYellow} />
             ) : (
-              <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+              <Pressable
+                style={styles.refreshRecoButton}
+                onPress={rerunRecommendation}
+                // @ts-ignore – web-only: prevent blur from stealing the first click
+                onMouseDown={(e: any) => e.preventDefault()}
+              >
                 <Ionicons name="refresh" size={20} color={colors.inkDark} />
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         </View>
