@@ -28,6 +28,7 @@ import {
 } from "../../../lib/api";
 
 const PROCESSING_STEPS = [
+  { key: "pending", label: "In queue...", emoji: "⏳" },
   { key: "detecting", label: "Finding books...", emoji: "🔍" },
   { key: "reading", label: "Reading spines...", emoji: "📖" },
   { key: "looking_up", label: "Learning...", emoji: "📚" },
@@ -184,16 +185,16 @@ export default function ScanDetailScreen() {
     // Immediately clear results locally so UI shows processing state
     setScan((prev) => prev ? {
       ...prev,
-      processingStatus: "detecting",
+      processingStatus: "pending",
       recommendation: null,
       recommendationSummary: null,
       detectedBooks: null,
     } : prev);
     const token = await getToken();
     if (!token) return;
-    // Reset to detecting with null task_id so the worker picks it up fresh
+    // Reset to pending with null task_id so the worker picks it up fresh
     await updateScan(token, id, {
-      processing_status: "detecting",
+      processing_status: "pending",
       processing_task_id: null,
       detected_books: null,
       recommendation: null,
@@ -311,7 +312,7 @@ export default function ScanDetailScreen() {
               );
             })}
           </View>
-          {currentStep < 4 && (
+          {currentStep < PROCESSING_STEPS.length - 1 && (
             <ActivityIndicator
               size="small"
               color={colors.beamYellow}

@@ -15,7 +15,7 @@ import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getHistory, deleteHistoryEntry, type HistoryWithBook } from "../../../lib/api";
-import { STATUS_EMOJI } from "../../../lib/reading-status";
+import { STATUS_LABELS } from "../../../lib/reading-status";
 import SwipeToDelete from "../../../components/SwipeToDelete";
 import ConfirmModal from "../../../components/ConfirmModal";
 
@@ -106,9 +106,16 @@ export default function MyBooks() {
               <Text style={styles.bookCoverEmoji}>📕</Text>
             </View>
             <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle} numberOfLines={2}>
-                {book.title}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.bookTitle} numberOfLines={2}>
+                  {book.title}
+                </Text>
+                {entry.reactions && entry.reactions.length > 0 && (
+                  <Text style={styles.reactions}>
+                    {entry.reactions.join(" ")}
+                  </Text>
+                )}
+              </View>
               {book.author && (
                 <Text style={styles.bookAuthor} numberOfLines={1}>
                   {book.author}
@@ -122,20 +129,20 @@ export default function MyBooks() {
                   entry.status === "abandoned" && styles.statusBadgeAbandoned,
                 ]}>
                   <Text style={styles.statusBadgeText}>
-                    {STATUS_EMOJI[entry.status] || ""} {entry.status}
+                    {STATUS_LABELS[entry.status] || entry.status}
                   </Text>
                 </View>
+                {book.isSeries && (
+                  <View style={styles.seriesBadge}>
+                    <Text style={styles.seriesText}>Series</Text>
+                  </View>
+                )}
                 {SOURCE_LABELS[entry.source] && (
                   <View style={styles.sourceBadge}>
                     <Text style={styles.sourceText}>
                       {SOURCE_LABELS[entry.source]}
                     </Text>
                   </View>
-                )}
-                {entry.reactions && entry.reactions.length > 0 && (
-                  <Text style={styles.reactions}>
-                    {entry.reactions.join(" ")}
-                  </Text>
                 )}
               </View>
             </View>
@@ -156,7 +163,7 @@ export default function MyBooks() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Books</Text>
+      <Text style={styles.header}>Your Reading History</Text>
 
       <TouchableOpacity
         style={styles.ctaButton}
@@ -252,29 +259,36 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.md,
+    padding: spacing.sm,
     marginBottom: spacing.md,
     ...shadows.card,
   },
   bookCoverPlaceholder: {
-    width: 48,
-    height: 64,
+    width: 40,
+    height: 54,
     borderRadius: radius.sm,
     backgroundColor: colors.beamYellowLight,
     justifyContent: "center",
     alignItems: "center",
   },
   bookCoverEmoji: {
-    fontSize: 24,
+    fontSize: 20,
   },
   bookInfo: {
     flex: 1,
     marginLeft: spacing.md,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   bookTitle: {
     fontSize: 15,
     fontFamily: fonts.headingMedium,
     color: colors.inkDark,
+    flex: 1,
   },
   bookAuthor: {
     fontSize: 13,
@@ -319,7 +333,20 @@ const styles = StyleSheet.create({
     color: colors.pageTeal,
   },
   reactions: {
-    fontSize: 14,
+    fontSize: 18,
+  },
+  seriesBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  seriesText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   emptyState: {
     flex: 1,

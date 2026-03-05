@@ -19,6 +19,7 @@ import { useAppContext } from "../../../lib/AppContext";
 import { getScans, deleteScan, getImageUrl, type ScanData } from "../../../lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
+  pending: "In queue...",
   detecting: "Finding books...",
   reading: "Reading spines...",
   looking_up: "Learning...",
@@ -29,6 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  pending: colors.beamYellow,
   detecting: colors.beamYellow,
   reading: colors.beamYellow,
   looking_up: colors.pageTeal,
@@ -101,7 +103,7 @@ export default function ScanHome() {
 
   const renderScanCard = useCallback(
     ({ item }: { item: ScanData }) => {
-      const status = item.processingStatus || "detecting";
+      const status = item.processingStatus || "pending";
       const bookCount = countBooks(item);
 
       return (
@@ -154,7 +156,10 @@ export default function ScanHome() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Scan a Shelf</Text>
+      <Text style={styles.header}>Find Your Next Read</Text>
+      <Text style={styles.headerSubtitle}>
+        Snap a photo of any bookshelf and we'll pick the best books for you
+      </Text>
 
       <TouchableOpacity
         style={styles.ctaButton}
@@ -221,7 +226,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: fonts.heading,
     color: colors.inkDark,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
     marginBottom: spacing.lg,
+    lineHeight: 21,
   },
   ctaButton: {
     backgroundColor: colors.beamYellow,
