@@ -7,7 +7,7 @@ import logging
 import os
 
 from openai import OpenAI
-from PIL import Image
+from PIL import Image, ImageOps
 
 log = logging.getLogger("pipeline.utils")
 
@@ -50,8 +50,10 @@ def load_image_to_pil(source: str, is_base64: bool = False) -> Image.Image:
     """Load an image from a file path or base64 string into a PIL Image."""
     if is_base64:
         data = base64.b64decode(source)
-        return Image.open(io.BytesIO(data))
-    return Image.open(source)
+        img = Image.open(io.BytesIO(data))
+    else:
+        img = Image.open(source)
+    return ImageOps.exif_transpose(img)
 
 
 def pil_to_base64(img: Image.Image, fmt: str = "JPEG") -> str:

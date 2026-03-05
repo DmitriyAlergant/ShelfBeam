@@ -16,13 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
-import {
-  getBook,
-  updateHistoryEntry,
-  deleteHistoryEntry,
-  type BookData,
-  getHistory,
-} from "../../lib/api";
+import { useHistoryStore } from "../../lib/stores/useHistoryStore";
 import EmojiReactions from "../../components/EmojiReactions";
 import { STATUS_OPTIONS } from "../../lib/reading-status";
 
@@ -36,39 +30,43 @@ export default function BookDetailScreen() {
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
 
-  const [book, setBook] = useState<BookData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reactions, setReactions] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("reading");
-  const [comment, setComment] = useState<string>("");
+  const storeEntry = useHistoryStore((s) => s.entries.find((e) => e.entry.id === entryId));
+  const storeUpdateEntry = useHistoryStore((s) => s.updateEntry);
+  const storeRemoveEntry = useHistoryStore((s) => s.removeEntry);
+  const storeFetchHistory = useHistoryStore((s) => s.fetchHistory);
 
+  const book = storeEntry?.book ?? null;
+  const [loading, setLoading] = useState(!storeEntry);
+  const [error, setError] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<string[]>(storeEntry?.entry.reactions || []);
+  const [status, setStatus] = useState<string>(storeEntry?.entry.status || "reading");
+  const [comment, setComment] = useState<string>(storeEntry?.entry.comment || "");
+
+  // Fallback: if entry not in store (deep link), fetch history once
   useEffect(() => {
+    if (storeEntry) { setLoading(false); return; }
+    if (!activeProfile) return;
     (async () => {
-      if (!bookId || !activeProfile) return;
       const token = await getToken();
       if (!token) return;
-
       try {
-        const bookData = await getBook(token, bookId);
-        setBook(bookData);
-
-        // Find the history entry
-        const history = await getHistory(token, activeProfile.id);
-        const found = history.find((h) => h.entry.id === entryId);
-        if (found) {
-          setReactions(found.entry.reactions || []);
-          setStatus(found.entry.status);
-          setComment(found.entry.comment || "");
-        }
+        await storeFetchHistory(token, activeProfile.id);
       } catch {
         setError("Couldn't load this book. Please go back and try again.");
       }
-
       setLoading(false);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, entryId, activeProfile?.id]);
+  }, []);
+
+  // Sync local state when store entry arrives (from fallback fetch)
+  useEffect(() => {
+    if (storeEntry) {
+      setReactions(storeEntry.entry.reactions || []);
+      setStatus(storeEntry.entry.status);
+      setComment(storeEntry.entry.comment || "");
+    }
+  }, [storeEntry?.entry.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleReaction = useCallback(
     async (emoji: string) => {
@@ -85,14 +83,9 @@ export default function BookDetailScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      const updated = await updateHistoryEntry(
-        token,
-        activeProfile.id,
-        entryId,
-        { reactions: newReactions }
-      );
+      await storeUpdateEntry(token, activeProfile.id, entryId, { reactions: newReactions });
     },
-    [activeProfile, entryId, getToken, reactions]
+    [activeProfile, entryId, getToken, reactions, storeUpdateEntry]
   );
 
   const toggleStatus = useCallback(
@@ -102,14 +95,9 @@ export default function BookDetailScreen() {
       if (!token) return;
 
       setStatus(newStatus);
-      const updated = await updateHistoryEntry(
-        token,
-        activeProfile.id,
-        entryId,
-        { status: newStatus }
-      );
+      await storeUpdateEntry(token, activeProfile.id, entryId, { status: newStatus });
     },
-    [activeProfile, entryId, getToken, status]
+    [activeProfile, entryId, getToken, status, storeUpdateEntry]
   );
 
   const saveComment = useCallback(
@@ -118,14 +106,9 @@ export default function BookDetailScreen() {
       const token = await getToken();
       if (!token) return;
 
-      const updated = await updateHistoryEntry(
-        token,
-        activeProfile.id,
-        entryId,
-        { comment: text || "" }
-      );
+      await storeUpdateEntry(token, activeProfile.id, entryId, { comment: text || "" });
     },
-    [activeProfile, entryId, getToken]
+    [activeProfile, entryId, getToken, storeUpdateEntry]
   );
 
   const handleDelete = useCallback(async () => {
@@ -148,9 +131,9 @@ export default function BookDetailScreen() {
     if (!activeProfile || !entryId) return;
     const token = await getToken();
     if (!token) return;
-    await deleteHistoryEntry(token, activeProfile.id, entryId);
+    await storeRemoveEntry(token, activeProfile.id, entryId);
     router.back();
-  }, [activeProfile, entryId, getToken, router]);
+  }, [activeProfile, entryId, getToken, router, storeRemoveEntry]);
 
   if (loading || !book) {
     return (

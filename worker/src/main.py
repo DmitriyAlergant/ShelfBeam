@@ -9,11 +9,14 @@ Uses asyncio for concurrent scan processing.
 
 import asyncio
 import base64
+import io
 import logging
 import os
 import uuid
 
+import boto3
 import httpx
+from PIL import Image
 import psycopg2
 
 from pipeline import run_full_pipeline
@@ -23,6 +26,14 @@ API_BASE_URL = os.environ["API_BASE_URL"]
 ADMIN_API_KEY = os.environ["ADMIN_API_KEY"]
 TEST_USER_ID = os.environ["TEST_USER_ID"]
 MAX_CONCURRENT_SCANS = int(os.environ["MAX_CONCURRENT_SCANS"])
+S3_BUCKET = os.environ["S3_BUCKET"]
+
+_s3_client = boto3.client(
+    "s3",
+    endpoint_url=os.environ["S3_ENDPOINT"],
+    aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+)
 
 POLL_INTERVAL_SECONDS = 5
 STALE_TASK_TIMEOUT_SECONDS = 120
@@ -35,6 +46,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("worker")
 
 ADMIN_HEADERS = {
@@ -239,7 +251,8 @@ def _process_scan_sync(scan_row: dict, task_id: str):
 
     # Load image as base64
     image_b64 = load_image_as_base64(image_url)
-    log.info("Loaded image (%d bytes base64)", len(image_b64))
+    img = Image.open(io.BytesIO(base64.b64decode(image_b64)))
+    log.info("Loaded image %dx%d", img.width, img.height)
 
     # Get reader context for personalized recommendations
     reader_context = "No reader profile available."
@@ -258,6 +271,20 @@ def _process_scan_sync(scan_row: dict, task_id: str):
     detected_books = result.get("detected_books", [])
     log.info("Pipeline returned %d detected books", len(detected_books))
 
+    # Upload crops to S3
+    for i, detected in enumerate(detected_books):
+        crop_b64 = detected.pop("crop_b64", None)
+        if crop_b64:
+            key = f"crops/{scan_id}/{i}.jpg"
+            _s3_client.put_object(
+                Bucket=S3_BUCKET,
+                Key=key,
+                Body=base64.b64decode(crop_b64),
+                ContentType="image/jpeg",
+            )
+            detected_books[i]["crop_url"] = f"/uploads/{key}"
+    log.info("Uploaded %d crops to S3", sum(1 for d in detected_books if d.get("crop_url")))
+
     # Upsert each detected book into the books table
     for i, detected in enumerate(detected_books):
         if not detected.get("title"):
@@ -268,11 +295,18 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         }
         book_record = sync_api_post("/api/books", book_data)
         detected_books[i]["book_id"] = book_record["id"]
-        log.info("Upserted book: %s -> %s", detected["title"], book_record["id"])
 
     # Final update — set detected_books, recommendation, summary, and status to 'done'
     recommendations = result.get("recommendations", [])
     recommendation_summary = result.get("recommendation_summary", "")
+
+    log.info("Recommendations (%d):", len(recommendations))
+    for rec in recommendations:
+        log.info("  #%s [%d] %s — %s: %s",
+                 rec.get("rank", "?"), rec.get("book_index", -1),
+                 rec.get("title", "?"), rec.get("author", "?"),
+                 rec.get("reason", ""))
+    log.info("Summary: %s", recommendation_summary)
 
     patch_scan({
         "processing_status": "done",

@@ -14,7 +14,8 @@ import { useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
-import { getHistory, deleteHistoryEntry, type HistoryWithBook } from "../../../lib/api";
+import { type HistoryWithBook } from "../../../lib/api";
+import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
 import { STATUS_LABELS } from "../../../lib/reading-status";
 import SwipeToDelete from "../../../components/SwipeToDelete";
 import ConfirmModal from "../../../components/ConfirmModal";
@@ -27,8 +28,10 @@ export default function MyBooks() {
   const router = useRouter();
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
-  const [entries, setEntries] = useState<HistoryWithBook[]>([]);
-  const [loading, setLoading] = useState(true);
+  const entries = useHistoryStore((s) => s.entries);
+  const loading = useHistoryStore((s) => s.loading);
+  const storeFetchHistory = useHistoryStore((s) => s.fetchHistory);
+  const storeRemoveEntry = useHistoryStore((s) => s.removeEntry);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -38,14 +41,12 @@ export default function MyBooks() {
     if (!activeProfile) return;
     const token = await getToken();
     if (!token) return;
-    const data = await getHistory(token, activeProfile.id);
-    setEntries(data);
-  }, [activeProfile, getToken]);
+    await storeFetchHistory(token, activeProfile.id);
+  }, [activeProfile, getToken, storeFetchHistory]);
 
   useEffect(() => {
-    setEntries([]);
-    setLoading(true);
-    fetchHistory().finally(() => setLoading(false));
+    useHistoryStore.getState().reset();
+    fetchHistory();
   }, [fetchHistory]);
 
   // Re-fetch when screen regains focus (e.g. returning from book-detail)
@@ -75,11 +76,10 @@ export default function MyBooks() {
     setDeleteLoading(true);
     const token = await getToken();
     if (!token) return;
-    await deleteHistoryEntry(token, activeProfile.id, deletingEntryId);
-    setEntries((prev) => prev.filter((e) => e.entry.id !== deletingEntryId));
+    await storeRemoveEntry(token, activeProfile.id, deletingEntryId);
     setDeleteLoading(false);
     setDeletingEntryId(null);
-  }, [deletingEntryId, activeProfile, getToken]);
+  }, [deletingEntryId, activeProfile, getToken, storeRemoveEntry]);
 
   const renderBookCard = useCallback(
     ({ item }: { item: HistoryWithBook }) => {

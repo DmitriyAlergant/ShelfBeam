@@ -30,7 +30,6 @@ def run_full_pipeline(
     # Stage 1: Detection
     _notify("detect")
     detections = detect_books(image_source, is_base64=is_base64)
-    log.info("Detection found %d books", len(detections))
 
     if not detections:
         return {
@@ -47,6 +46,9 @@ def run_full_pipeline(
     _notify("normalize")
     normalized = normalize_books(ocr_results)
 
+    for n in normalized:
+        log.info("  [%d] %s — %s", n["index"], n.get("title"), n.get("author"))
+
     # Build detected_books list combining detection + normalization data
     detected_books = []
     norm_by_index = {n["index"]: n for n in normalized}
@@ -59,6 +61,7 @@ def run_full_pipeline(
             "author": norm.get("author"),
             "confidence": det["confidence"],
             "bbox": det["bbox"],
+            "crop_b64": det["crop_b64"],
         })
 
     # Stage 4: Recommend

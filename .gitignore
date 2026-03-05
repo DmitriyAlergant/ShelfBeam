@@ -163,3 +163,6 @@ pgdata/
 # ralphex progress logs
 .ralphex/progress/
 standalone/test-outputs/
+
+
+*-polygon-crops/
