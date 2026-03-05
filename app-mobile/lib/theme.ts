@@ -1,5 +1,5 @@
 /**
- * BookBeam Design System — "Magic Library" theme
+ * ShelfBeam Design System — "Magic Library" theme
  * Warm maximalism with paper texture. Wes Anderson meets a children's museum.
  */
 

@@ -1,4 +1,4 @@
-"""BookBeam shelf processing worker.
+"""ShelfBeam shelf processing worker.
 
 Polls the scans table for scans with processing_status='pending',
 runs the 4-stage pipeline (detect -> OCR -> normalize -> recommend),
@@ -212,7 +212,7 @@ def get_reader_context(profile_id: str, user_id: str) -> str:
     if profile.get("notes"):
         parts.append(f"Notes from parent: {profile['notes']}")
 
-    # history is grouped: {reading: [...], finished: [...]}
+    # history is an array of {entry: {...}, book: {...}} objects
     all_entries = []
     if isinstance(history, dict):
         for entries in history.values():
@@ -222,13 +222,30 @@ def get_reader_context(profile_id: str, user_id: str) -> str:
         all_entries = history
 
     if all_entries:
-        read_titles = [
-            entry.get("book", {}).get("title", "Unknown")
-            for entry in all_entries
-            if isinstance(entry, dict)
-        ]
-        if read_titles:
-            parts.append(f"Books already read/reading: {', '.join(read_titles[:20])}")
+        history_lines = []
+        for item in all_entries:
+            if not isinstance(item, dict):
+                continue
+            entry = item.get("entry", {})
+            book_data = item.get("book", {})
+            title = book_data.get("title") or "Unknown"
+            author = book_data.get("author")
+            status = entry.get("status", "reading")
+            comment = entry.get("comment")
+            reactions = entry.get("reactions", [])
+
+            line = f"- {title}"
+            if author:
+                line += f" by {author}"
+            line += f" ({status})"
+            if reactions:
+                line += f" {' '.join(reactions)}"
+            if comment:
+                line += f' — "{comment}"'
+            history_lines.append(line)
+
+        if history_lines:
+            parts.append("Reading history:\n" + "\n".join(history_lines[:20]))
 
     return "\n".join(parts) if parts else "No reader profile info available."
 
@@ -281,6 +298,7 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         reader_comment=reader_comment,
         is_base64=True,
         status_callback=status_callback,
+        scan_id=scan_id,
     )
 
     detected_books = result.get("detected_books", [])
@@ -339,7 +357,7 @@ async def process_scan(scan_row: dict, task_id: str):
 
 async def main():
     """Main async polling loop with concurrent scan processing."""
-    log.info("BookBeam worker starting...")
+    log.info("ShelfBeam worker starting...")
     log.info("API base: %s", API_BASE_URL)
     log.info("Poll interval: %ds, max concurrent: %d", POLL_INTERVAL_SECONDS, MAX_CONCURRENT_SCANS)
 

@@ -16,6 +16,7 @@ def run_full_pipeline(
     reader_comment: str | None = None,
     is_base64: bool = False,
     status_callback=None,
+    scan_id: str | None = None,
 ) -> dict:
     """Run the full 4-stage pipeline: detect -> OCR -> normalize -> recommend.
 
@@ -66,7 +67,7 @@ def run_full_pipeline(
 
     # Stage 4: Recommend
     _notify("recommend")
-    rec_result = recommend_books(normalized, reader_context, reader_comment)
+    rec_result = recommend_books(normalized, reader_context, reader_comment, scan_id=scan_id)
 
     # Resolve book_index references to actual book data
     books_by_index = {b["index"]: b for b in detected_books}

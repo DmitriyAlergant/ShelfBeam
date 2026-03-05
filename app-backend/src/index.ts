@@ -69,7 +69,7 @@ async function main() {
   });
 
   app.listen(Number(PORT), () => {
-    console.log(`BookBeam backend listening on port ${PORT}`);
+    console.log(`ShelfBeam backend listening on port ${PORT}`);
   });
 }
 

@@ -130,7 +130,7 @@ export default function SignUpScreen() {
           <View style={styles.logoCircle}>
             <Text style={styles.logoEmoji}>📚</Text>
           </View>
-          <Text style={styles.title}>BookBeam</Text>
+          <Text style={styles.title}>ShelfBeam</Text>
           <Text style={styles.subtitle}>Create your account</Text>
         </View>
 

@@ -6,6 +6,7 @@ import {
   Image,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ import {
   createBook,
   addToHistory,
   getImageUrl,
+  updateScan,
   type DetectedBook,
   type ScanRecommendationPick,
 } from "../../../lib/api";
@@ -57,6 +59,7 @@ export default function ScanDetailScreen() {
   const storeUpdateScan = useScanStore((s) => s.updateScan);
   const storePatchLocal = useScanStore((s) => s.patchScanLocal);
   const [loading, setLoading] = useState(!scan);
+  const [rerunPending, setRerunPending] = useState(false);
   const [comment, setComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
   const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
@@ -101,13 +104,20 @@ export default function ScanDetailScreen() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll while processing
+  const shouldPoll = rerunPending || !TERMINAL_STATUSES.includes(scan?.processingStatus ?? "");
   useEffect(() => {
-    if (!scan) return;
-    const isDone = TERMINAL_STATUSES.includes(scan.processingStatus ?? "");
-    if (isDone) {
-      if (pollRef.current) clearInterval(pollRef.current);
-      return;
+    if (!scan || !shouldPoll) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return () => {};
     }
+
+    // Clear rerunPending once polling starts — the poll will track actual status
+    if (rerunPending) setRerunPending(false);
+
+    if (pollRef.current) clearInterval(pollRef.current);
 
     pollRef.current = setInterval(async () => {
       const token = await getToken();
@@ -116,18 +126,24 @@ export default function ScanDetailScreen() {
     }, 2000);
 
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
-  }, [scan?.processingStatus, id, getToken, storeFetchScan]);
+  }, [shouldPoll, id, getToken, storeFetchScan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveComment = useCallback(async () => {
     if (!id) return;
     setSavingComment(true);
     const token = await getToken();
     if (!token) { setSavingComment(false); return; }
-    await storeUpdateScan(token, id, { reader_comment: comment.trim() || null });
+    // Use updateScan API directly to avoid overwriting scan store state
+    // (prevents race with rerunRecommendation)
+    await updateScan(token, id, { reader_comment: comment.trim() || null });
+    storePatchLocal(id, { readerComment: comment.trim() || null });
     setSavingComment(false);
-  }, [id, comment, getToken, storeUpdateScan]);
+  }, [id, comment, getToken, storePatchLocal]);
 
   const showToast = useCallback(
     (message: string) => {
@@ -199,16 +215,9 @@ export default function ScanDetailScreen() {
 
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
-    // Immediately clear results locally so UI shows processing state
-    storePatchLocal(id, {
-      processingStatus: "pending",
-      recommendation: null,
-      recommendationSummary: null,
-      detectedBooks: null,
-    });
+    setRerunPending(true);
     const token = await getToken();
-    if (!token) return;
-    // Reset to pending with null task_id so the worker picks it up fresh
+    if (!token) { setRerunPending(false); return; }
     await storeUpdateScan(token, id, {
       processing_status: "pending",
       processing_task_id: null,
@@ -216,7 +225,7 @@ export default function ScanDetailScreen() {
       recommendation: null,
       recommendation_summary: null,
     });
-  }, [id, getToken, storePatchLocal, storeUpdateScan]);
+  }, [id, getToken, storeUpdateScan]);
 
   if (loading || !scan) {
     return (
@@ -226,9 +235,10 @@ export default function ScanDetailScreen() {
     );
   }
 
-  const currentStep = getStepIndex(scan.processingStatus);
-  const isDone = scan.processingStatus === "done";
-  const isError = scan.processingStatus === "error" || scan.processingStatus === "failed";
+  const effectiveStatus = rerunPending ? "pending" : scan.processingStatus;
+  const currentStep = getStepIndex(effectiveStatus);
+  const isDone = effectiveStatus === "done";
+  const isError = effectiveStatus === "error" || effectiveStatus === "failed";
   const detectedBooks = (scan.detectedBooks || []) as DetectedBook[];
 
   return (
@@ -236,6 +246,7 @@ export default function ScanDetailScreen() {
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Back button */}
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
@@ -410,9 +421,14 @@ export default function ScanDetailScreen() {
             {savingComment ? (
               <ActivityIndicator size="small" color={colors.beamYellow} />
             ) : (
-              <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+              <Pressable
+                style={styles.refreshRecoButton}
+                onPress={rerunRecommendation}
+                // @ts-ignore – web-only: prevent blur from stealing the first click
+                onMouseDown={(e: any) => e.preventDefault()}
+              >
                 <Ionicons name="refresh" size={20} color={colors.inkDark} />
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         </View>
