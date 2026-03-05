@@ -67,3 +67,8 @@ ADMIN API AUTH BYPASS: The backend supports full Clerk auth bypass via two heade
 FRONTEND DEV AUTH BYPASS FOR AGENTIC TESTING (playwright/dev-browser): Set `EXPO_PUBLIC_DEV_AUTH_BYPASS=true` in `.env` (along with `EXPO_PUBLIC_DEV_ADMIN_API_KEY` and `EXPO_PUBLIC_DEV_TEST_USER_ID`). When enabled, ClerkProvider is replaced with a mock auth context, uses `X-Admin-User-Id` admin header based on $EXPO_PUBLIC_DEV_TEST_USER_ID. The app loads directly to profile-picker skipping sign-in.  react-native-web served via `http://localhost:8081`.
 
 HOT RELOAD: all docker compose apps need to mount source code from the monorepo for hot reload (via docker compose, not via app-level Dockerfile). If we ever deploy to production into e.g. railway, that will not be using this docker compose yaml.
+
+
+## Maintaining Production Deployment
+
+Production deployment is in Railway, not using docker compose. One project. Assume railway CLI is authenticated. If any environment variables are added or changed, you may need to add it to Railway apps as well (app-backend and/or worker). 
