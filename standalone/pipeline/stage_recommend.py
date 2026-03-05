@@ -9,7 +9,7 @@ from .utils import create_openai_client, llm_call_with_json_retry
 log = logging.getLogger("pipeline.recommend")
 
 RECOMMEND_PROMPT = """\
-You are a children's librarian AI assistant for the BookBeam app.
+You are a children's librarian AI assistant for the ShelfBeam app.
 
 You have a list of books detected on a library bookshelf. Your job is to recommend \
 the best books for this specific reader based on their profile, reading history, and \
@@ -78,7 +78,7 @@ def recommend_books(
 
     reader_comment_section = ""
     if reader_comment:
-        reader_comment_section = f'\nThe reader says: "{reader_comment}"\n'
+        reader_comment_section = f'\n**The reader has also provided the following Comment for this particular scan. PAY CLOSE ATTENTION TO IT.**  If the user did not like the previous recommendations, they may use this Comment to adjust your recommendations. USER COMMENT: "{reader_comment}"\n'
 
     prompt = RECOMMEND_PROMPT.format(
         reader_context=reader_context,

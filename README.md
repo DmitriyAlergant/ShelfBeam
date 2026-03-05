@@ -6,57 +6,68 @@ An app helping kids choose books to read from a library bookshelf. Snap a pic of
 
 ## Prerequisites
 
-- Node.js 20+
+- macOS with Apple Silicon (M1+)
 - Docker & Docker Compose
-- iOS Simulator (Xcode) and/or Expo Go on a physical device
+- Python 3.11+ (for local OCR server)
+- Node.js 18+
+- Expo Go app on a physical device (optional — web emulator works too)
 
 ## Running Locally
 
+### 1. Clone and configure environment
+
 ```bash
-# 1. Configure environment
 cp .env.example .env
+```
 
-# 2. Fill in Clerk keys, LLM endpoint, Roboflow key, and OCR backend settings
+Edit `.env` and fill in your API keys:
 
-# 3. Start backend services (Postgres, MinIO, Express API, Worker, Landing)
-docker compose up
+| Variable | Where to get it |
+|----------|----------------|
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` | Your OpenAI-compatible LLM endpoint (LiteLLM, OpenRouter, or direct OpenAI) |
+| `ROBOFLOW_API_KEY` | Sign up at [app.roboflow.com](https://app.roboflow.com), get key from Settings > API |
+| `CLERK_SECRET_KEY` / `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Optional — auth bypass is enabled by default (`EXPO_PUBLIC_DEV_AUTH_BYPASS=true`) |
 
-# 4. Start Expo (separate terminal, on host Mac — not in Docker)
+The `.env.example` defaults work for everything else (Postgres, MinIO, admin bypass, etc).
+
+### 2. Start the local MLX OCR server (Apple Silicon)
+
+The pipeline uses PaddleOCR-VL for reading book spines. On Apple Silicon Macs, run it locally via MLX:
+
+```bash
+# Install dependencies (one-time)
+pip install mlx-vlm Pillow
+
+# Start the server (downloads model on first run, ~3GB)
+MLX_OCR_MODEL=mlx-community/PaddleOCR-VL-1.5-bf16 \
+MLX_OCR_PORT=8090 \
+python3 standalone/mlx-vlm-endpoint/mlx_ocr_server.py
+```
+
+The server loads the model and listens on `http://localhost:8090`. Keep this terminal open.
+
+> **Alternative OCR backends:** Set `OCR_BACKEND=hf` in `.env` to use a HuggingFace Inference Endpoint instead (requires `HUGGINGFACE_API_KEY` and `HF_ENDPOINT_URL`). Set `OCR_BACKEND=llm` to use a Vision LLM via the OpenAI-compatible endpoint.
+
+### 3. Start backend services
+
+```bash
+docker compose up -d
+```
+
+This starts Postgres, MinIO, Express API (port 3000), Python worker, and Astro landing page (port 4321).
+
+### 4. Start the Expo app
+
+```bash
+# In a separate terminal (runs on host Mac, not Docker)
 ./expo.sh
 ```
-- Press `i` for iOS Simulator, `a` for Android Emulator
-- Scan QR with Expo Go app on a real device
 
-### Physical Device
+- Press `w` for web browser (http://localhost:8081) — enable mobile viewport in DevTools
+- Press `i` for iOS Simulator
+- Scan QR with Expo Go on a physical device
 
-When running on a physical device via Expo Go, `localhost` won't reach your Mac. Update `.env`:
-
-```
-EXPO_PUBLIC_API_URL=http://<your-mac-local-ip>:3000
-```
-
-Then restart Expo (`npx expo start --clear`) so it picks up the new value.
-
-## Pipeline
-
-The worker runs a 4-stage pipeline on each scanned bookshelf image:
-
-1. **Detect** — Roboflow object detection model (`fyp-obb-mnsh3/9`) finds individual book spines
-2. **OCR** — Extracts text from each crop. Backends: `hf` (HuggingFace PaddleOCR-VL endpoint, recommended), `llm` (Vision LLM), `mlx` (local PaddleOCR-VL), `easyocr`
-3. **Normalize** — LLM cleans up OCR text into structured title/author (`gemini-3-flash-preview`)
-4. **Recommend** — LLM generates personalized recommendations based on reader profile (`gpt-5.2`)
-
-All LLM calls go through an OpenAI-compatible proxy (e.g. LiteLLM) configured via `OPENAI_BASE_URL`.
-
-## Testing
-
-```bash
-# Backend API tests
-cd app-backend && npm test
-
-# Python pipeline tests
-cd worker && pytest
-```
+> **Physical devices:** `localhost` won't reach your Mac. Set `EXPO_PUBLIC_API_URL=http://<your-mac-local-ip>:3000` in `.env` before starting Expo.
 
 ## Project Structure
 
@@ -64,8 +75,9 @@ cd worker && pytest
 ShelfBeam/
 ├── app-mobile/      # Expo + React Native app
 ├── app-backend/     # Express API + Drizzle ORM (BFF)
-├── worker/          # Python pipeline (detect → OCR → normalize → recommend)
+├── worker/          # Python pipeline (detect -> OCR -> normalize -> recommend)
 ├── landing/         # Astro landing page with QR codes
+├── standalone/      # Standalone dev tools (MLX OCR server, HF endpoint scripts)
 ├── designs/         # Screen maps, data model, design guidelines
 ├── docs/            # Deployment guides
 ├── docker-compose.yml
@@ -78,6 +90,5 @@ Production runs on Railway (not Docker Compose). See [Railway Deployment Guide](
 
 ## Design Docs
 
-- [Screen Map](./designs/screen-map.md)
 - [Data Model](./designs/data-model.md)
 - [Design Guidelines](./designs/design-guidelines.md)

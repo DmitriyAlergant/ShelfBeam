@@ -1,0 +1,24 @@
+# Sibling services (not needed for mobile build)
+app-backend/
+landing/
+worker/
+standalone/
+
+# Non-essential directories
+sample-images/
+designs/
+docs/
+plans/
+.claude/
+memory/
+
+# Git
+.git/
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+
+# Misc
+*.md
+.env*

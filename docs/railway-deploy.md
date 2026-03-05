@@ -26,6 +26,9 @@ In the Railway dashboard, create:
 3. **worker** — connect to GitHub repo
    - Root directory: `worker/`
    - Builder: Dockerfile
+4. **landing** — connect to GitHub repo
+   - Root directory: `landing/`
+   - Builder: Dockerfile
 
 ## 3. Configure Environment Variables
 
@@ -71,7 +74,8 @@ railway variables set --service worker \
   OCR_LANGUAGES='en,es' \
   HUGGINGFACE_API_KEY='...' \
   HF_ENDPOINT_URL='...' \
-  OCR_NORMALIZE_MODEL='gemini-3-flash-preview' \
+  NORMALIZATION_MODEL='gemini-3-flash-preview' \
+  NORMALIZATION_BATCH_SIZE='20' \
   RECOMMENDATION_MODEL='gpt-5.2' \
   MAX_CONCURRENT_SCANS='3' \
   S3_ENDPOINT='${{Bucket.ENDPOINT}}' \
@@ -81,6 +85,20 @@ railway variables set --service worker \
 ```
 
 The worker talks to app-backend via Railway's internal network (`*.railway.internal`).
+
+### landing
+
+```bash
+railway variables set --service landing \
+  LANDING_IOS_QR_URL='exp://u.expo.dev/<PROJECT_ID>?channel-name=preview&runtime-version=1.0.0'
+```
+
+Generate a public URL for the landing page:
+
+```bash
+railway domain --service landing
+# Point your custom domain (e.g. shelfbeam.app) to this URL
+```
 
 ## 4. Generate Public URL
 
