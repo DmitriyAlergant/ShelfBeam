@@ -16,8 +16,11 @@ import uuid
 
 import boto3
 import httpx
+import pillow_heif
 from PIL import Image
 import psycopg2
+
+pillow_heif.register_heif_opener()
 
 from pipeline import run_full_pipeline
 from pipeline.orchestrator import ScanCancelledException
