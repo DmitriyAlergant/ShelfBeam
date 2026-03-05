@@ -79,9 +79,13 @@ standalone/
 
 # Step 4.5 Reopen the OCR task.
 
-[ ] Try running MLX-VLM locally with `https://huggingface.co/mlx-community/PaddleOCR-VL-1.5-bf16`. Evaluate quality and performance. All developers are on Macs / Apple Silicon, it can be addded to docker compose and used as an inference endopint. We will figure something out for production.
+[x] Try running MLX-VLM locally with `https://huggingface.co/mlx-community/PaddleOCR-VL-1.5-bf16`. Evaluate quality and performance. All developers are on Macs / Apple Silicon, it can be addded to docker compose and used as an inference endopint. We will figure something out for production.
 
-[ ] Revaluate the findings and the stage
+[x] Revaluate the findings and the stage
+- PaddleOCR-VL via MLX-VLM is dramatically better than EasyOCR: reads actual book titles, authors, multi-language (Spanish, Russian, English)
+- Performance: model loads in ~4s (cached), avg 1.4-3.0s per crop vs EasyOCR's 3.0-4.0s
+- Created mlx_ocr_server.py as HTTP endpoint (POST /ocr), stage_ocr.py updated to support both backends via OCR_BACKEND env var
+- Default backend switched to "mlx", EasyOCR kept as fallback via OCR_BACKEND=easyocr
 
 ### Step 5: `worker/src/pipeline/stage_recommend.py`
 [ ] Create a script
