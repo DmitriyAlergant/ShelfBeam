@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   Pressable,
   LayoutAnimation,
@@ -79,26 +80,12 @@ export function AvatarPicker({
       </View>
       <Pressable onPress={handleRandomize} style={styles.randomizeButton}>
         <View style={styles.randomizeInner}>
-          <RandomizeIcon />
-          <PressableText>Randomize</PressableText>
+          <Text style={styles.randomizeIcon}>🎲</Text>
+          <Text style={styles.randomizeText}>Randomize</Text>
         </View>
       </Pressable>
     </View>
   );
-}
-
-/** Inline text component to avoid importing Text with specific styling */
-function PressableText({ children }: { children: string }) {
-  const Text = require("react-native").Text;
-  return (
-    <Text style={styles.randomizeText}>{children}</Text>
-  );
-}
-
-/** Simple dice/refresh icon using basic shapes */
-function RandomizeIcon() {
-  const Text = require("react-native").Text;
-  return <Text style={styles.randomizeIcon}>🎲</Text>;
 }
 
 const styles = StyleSheet.create({

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -27,19 +28,21 @@ export default function ReadingLogEntryScreen() {
   const handleSubmit = async () => {
     if (!text.trim() || !activeProfile) return;
     setSubmitting(true);
-    const token = await getToken();
-    if (!token) {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const parsed = await parseReadingLog(token, text.trim(), activeProfile.id);
+
+      router.push({
+        pathname: "/(main)/reading-log-confirmation",
+        params: { parsed: JSON.stringify(parsed), rawText: text.trim() },
+      });
+    } catch {
+      Alert.alert("Error", "Failed to parse reading log. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const parsed = await parseReadingLog(token, text.trim(), activeProfile.id);
-    setSubmitting(false);
-
-    router.push({
-      pathname: "/(main)/reading-log-confirmation",
-      params: { parsed: JSON.stringify(parsed), rawText: text.trim() },
-    });
   };
 
   return (
@@ -58,9 +61,9 @@ export default function ReadingLogEntryScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.header}>Tell us what you've read</Text>
+        <Text style={styles.header}>Tell us what books you&apos;ve read</Text>
         <Text style={styles.subtitle}>
-          Type or dictate what you've been reading. We'll figure out the rest!
+          Knowing what you've already read will help us recommend you new books. Type or dictate a bit about the books you read lately and liked, or didn't like. Share your emotions.
         </Text>
 
         <TextInput
@@ -93,7 +96,7 @@ export default function ReadingLogEntryScreen() {
           {submitting ? (
             <ActivityIndicator size="small" color={colors.inkDark} />
           ) : (
-            <Text style={styles.submitText}>See what we found</Text>
+            <Text style={styles.submitText}>Process</Text>
           )}
         </TouchableOpacity>
       </View>

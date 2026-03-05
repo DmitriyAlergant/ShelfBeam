@@ -16,6 +16,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
+import { authStyles } from "../../lib/auth-styles";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -193,7 +194,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.linkRow}>
-            <Text style={styles.linkLabel}>Don't have an account? </Text>
+            <Text style={styles.linkLabel}>Don&apos;t have an account? </Text>
             <Link href="/(auth)/sign-up" asChild>
               <TouchableOpacity>
                 <Text style={styles.link}>Sign Up</Text>
@@ -206,20 +207,7 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgCream,
-  },
-  inner: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: spacing.xxl,
-  },
+const localStyles = StyleSheet.create({
   logoCircle: {
     width: 96,
     height: 96,
@@ -230,88 +218,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.button,
   },
-  logoEmoji: {
-    fontSize: 44,
-  },
-  title: {
-    fontSize: 40,
-    fontFamily: fonts.heading,
-    color: colors.inkDark,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: fonts.body,
-    color: colors.inkMedium,
-    marginTop: spacing.xs,
-  },
-  form: {
-    gap: spacing.md,
-  },
-  errorBox: {
-    backgroundColor: colors.coralLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  errorText: {
-    color: colors.spineCoral,
-    fontSize: 14,
-    fontFamily: fonts.bodyMedium,
-    textAlign: "center",
-  },
-  input: {
-    backgroundColor: colors.bgWarm,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontFamily: fonts.body,
-    color: colors.inkDark,
-  },
-  ssoButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.bgWarm,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    gap: spacing.sm,
-  },
-  ssoButtonDark: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.inkDark,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    gap: spacing.sm,
-  },
-  ssoButtonText: {
-    fontSize: 16,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkDark,
-  },
-  ssoButtonTextLight: {
-    fontSize: 16,
-    fontFamily: fonts.bodyMedium,
-    color: "#fff",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.inkLight,
-    opacity: 0.4,
-  },
-  dividerText: {
-    fontSize: 14,
-    fontFamily: fonts.body,
-    color: colors.inkLight,
-  },
   button: {
     backgroundColor: colors.beamYellow,
     borderRadius: radius.md,
@@ -319,27 +225,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...shadows.button,
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
   buttonText: {
     color: colors.inkDark,
     fontSize: 17,
     fontFamily: fonts.headingSemiBold,
   },
-  linkRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing.sm,
-  },
-  linkLabel: {
-    color: colors.inkMedium,
-    fontSize: 15,
-    fontFamily: fonts.body,
-  },
-  link: {
-    color: colors.shelfBrown,
-    fontSize: 15,
-    fontFamily: fonts.bodyBold,
-  },
 });
+
+const styles = { ...authStyles, ...localStyles };

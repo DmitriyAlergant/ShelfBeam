@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +13,6 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -21,7 +21,6 @@ import {
   updateHistoryEntry,
   deleteHistoryEntry,
   type BookData,
-  type HistoryEntry,
   getHistory,
 } from "../../lib/api";
 import EmojiReactions from "../../components/EmojiReactions";
@@ -38,8 +37,8 @@ export default function BookDetailScreen() {
   const { activeProfile } = useAppContext();
 
   const [book, setBook] = useState<BookData | null>(null);
-  const [entry, setEntry] = useState<HistoryEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reactions, setReactions] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("reading");
   const [comment, setComment] = useState<string>("");
@@ -58,13 +57,12 @@ export default function BookDetailScreen() {
         const history = await getHistory(token, activeProfile.id);
         const found = history.find((h) => h.entry.id === entryId);
         if (found) {
-          setEntry(found.entry);
           setReactions(found.entry.reactions || []);
           setStatus(found.entry.status);
           setComment(found.entry.comment || "");
         }
-      } catch (err) {
-        console.error("Failed to load book detail:", err);
+      } catch {
+        setError("Couldn't load this book. Please go back and try again.");
       }
 
       setLoading(false);
@@ -93,7 +91,6 @@ export default function BookDetailScreen() {
         entryId,
         { reactions: newReactions }
       );
-      setEntry(updated);
     },
     [activeProfile, entryId, getToken, reactions]
   );
@@ -111,7 +108,6 @@ export default function BookDetailScreen() {
         entryId,
         { status: newStatus }
       );
-      setEntry(updated);
     },
     [activeProfile, entryId, getToken, status]
   );
@@ -128,7 +124,6 @@ export default function BookDetailScreen() {
         entryId,
         { comment: text || "" }
       );
-      setEntry(updated);
     },
     [activeProfile, entryId, getToken]
   );
@@ -160,7 +155,16 @@ export default function BookDetailScreen() {
   if (loading || !book) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.beamYellow} />
+        {error ? (
+          <>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <TouchableOpacity style={{ marginTop: spacing.lg, padding: spacing.md }} onPress={() => router.back()}>
+              <Text style={styles.backText}>← Go Back</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <ActivityIndicator size="large" color={colors.beamYellow} />
+        )}
       </View>
     );
   }
@@ -406,5 +410,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.bodyMedium,
     color: colors.spineCoral,
+  },
+  errorMessage: {
+    fontSize: 16,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    paddingHorizontal: spacing.xl,
   },
 });

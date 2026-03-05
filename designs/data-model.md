@@ -39,7 +39,8 @@ Multiple per app_user (one parent account → many kid readers). Managed from Pr
 | user_id | uuid | FK → app_user |
 | name | text | Display name |
 | avatar_key | text | Key into predefined avatar library |
-| birth_year | smallint | e.g. 2015 |
+| age | smallint | 3–18 |
+| grade | smallint | 0 (K) – 12 |
 | gender | text | `M`/`F` or null |
 | languages | text[] | Array of language codes, e.g. `{en, ru}` |
 | interests | text[] | Free-form tags, e.g. `{dinosaurs, space, magic}` |

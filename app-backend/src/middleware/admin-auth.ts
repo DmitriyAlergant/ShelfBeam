@@ -8,7 +8,7 @@ const ADMIN_API_KEY = process.env.ADMIN_API_KEY ?? (() => { throw new Error("Mis
  * Runs BEFORE clerkMiddleware — sets __adminBypass flag so Clerk is skipped entirely,
  * and fakes req.auth so getAuth()/requireAuth() work downstream.
  */
-export function adminAuthBypass(req: Request, _res: Response, next: NextFunction) {
+export function adminAuthBypass(req: Request, res: Response, next: NextFunction) {
   const adminKey = req.headers["x-admin-key"] as string | undefined;
   if (!adminKey || adminKey !== ADMIN_API_KEY) {
     return next();
@@ -16,7 +16,7 @@ export function adminAuthBypass(req: Request, _res: Response, next: NextFunction
 
   const userId = req.headers["x-admin-user-id"] as string | undefined;
   if (!userId) {
-    _res.status(400).json({ error: "X-Admin-User-Id header required with X-Admin-Key" });
+    res.status(400).json({ error: "X-Admin-User-Id header required with X-Admin-Key" });
     return;
   }
 

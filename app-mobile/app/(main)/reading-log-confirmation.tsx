@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +13,6 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
@@ -39,7 +40,13 @@ export default function ReadingLogConfirmationScreen() {
   const { activeProfile } = useAppContext();
   const [saving, setSaving] = useState(false);
 
-  const parsedEntries: ParsedBookEntry[] = parsed ? JSON.parse(parsed) : [];
+  const parsedEntries: ParsedBookEntry[] = (() => {
+    try {
+      return parsed ? JSON.parse(parsed) : [];
+    } catch {
+      return [];
+    }
+  })();
 
   const [entries, setEntries] = useState<EditableEntry[]>(
     parsedEntries.map((e) => ({
@@ -85,42 +92,47 @@ export default function ReadingLogConfirmationScreen() {
 
     setSaving(true);
 
-    const activeEntries = entries.filter((e) => !e.removed);
+    try {
+      const activeEntries = entries.filter((e) => !e.removed);
 
-    for (const entry of activeEntries) {
-      if (entry.entry_type === "update" && entry.existing_history_entry_id) {
-        // Update existing history entry
-        await updateHistoryEntry(token, activeProfile.id, entry.existing_history_entry_id, {
-          status: entry.status,
-          reactions: entry.reactions,
-          comment: entry.comment || undefined,
-        });
-      } else {
-        // New book: create book then add to history
-        const book = await createBook(token, {
-          title: entry.title,
-          author: entry.author,
-          is_series: entry.is_series ?? false,
-        });
+      for (const entry of activeEntries) {
+        if (entry.entry_type === "update" && entry.existing_history_entry_id) {
+          // Update existing history entry — only send fields that were actually inferred
+          const updateData: Partial<{ status: string; reactions: string[]; comment: string }> = {};
+          if (entry.inferred_status) updateData.status = entry.status;
+          if (entry.inferred_reactions && entry.inferred_reactions.length > 0) updateData.reactions = entry.reactions;
+          if (entry.comment) updateData.comment = entry.comment;
+          await updateHistoryEntry(token, activeProfile.id, entry.existing_history_entry_id, updateData);
+        } else {
+          // New book: create book then add to history
+          const book = await createBook(token, {
+            title: entry.title,
+            author: entry.author,
+            is_series: entry.is_series ?? false,
+          });
 
-        await addToHistory(token, activeProfile.id, {
-          book_id: book.id,
-          source: "reading_log",
-          status: entry.status,
-          reactions: entry.reactions,
-          comment: entry.comment || undefined,
-        });
+          await addToHistory(token, activeProfile.id, {
+            book_id: book.id,
+            source: "reading_log",
+            status: entry.status,
+            reactions: entry.reactions,
+            comment: entry.comment || undefined,
+          });
+        }
       }
-    }
 
-    setSaving(false);
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
 
-    // Navigate back to books tab
-    router.dismissAll();
-    router.replace("/(main)/(tabs)/books");
+      // Navigate back to books tab
+      router.dismissAll();
+      router.replace("/(main)/(tabs)/books");
+    } catch {
+      Alert.alert("Error", "Failed to save reading log. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const activeEntries = entries.filter((e) => !e.removed);
@@ -147,7 +159,7 @@ export default function ReadingLogConfirmationScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.header}>Here's what we found</Text>
+        <Text style={styles.header}>Here&apos;s what we found</Text>
         <Text style={styles.subtitle}>
           Review and edit before adding to your history.
         </Text>
@@ -307,7 +319,7 @@ export default function ReadingLogConfirmationScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🤔</Text>
             <Text style={styles.emptyText}>
-              We couldn't find any books. Try describing them differently!
+              We couldn&apos;t find any books. Try describing them differently!
             </Text>
           </View>
         )}

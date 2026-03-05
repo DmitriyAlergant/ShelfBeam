@@ -1,27 +1,28 @@
 """BookBeam shelf processing worker.
 
-Polls the scans table for scans with processing_status='detecting',
-sends the shelf photo to GPT vision, extracts detected books and
-generates recommendations, then updates the scan via the backend API.
+Polls the scans table for scans with processing_status='pending',
+runs the 4-stage pipeline (detect -> OCR -> normalize -> recommend),
+and updates the scan via the backend API.
+
+Uses asyncio for concurrent scan processing.
 """
 
+import asyncio
 import base64
-import json
 import logging
 import os
-import time
 import uuid
 
 import httpx
 import psycopg2
-from openai import OpenAI
+
+from pipeline import run_full_pipeline
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_BASE_URL = os.environ["OPENAI_BASE_URL"]
 API_BASE_URL = os.environ["API_BASE_URL"]
 ADMIN_API_KEY = os.environ["ADMIN_API_KEY"]
 TEST_USER_ID = os.environ["TEST_USER_ID"]
+MAX_CONCURRENT_SCANS = int(os.environ["MAX_CONCURRENT_SCANS"])
 
 POLL_INTERVAL_SECONDS = 5
 STALE_TASK_TIMEOUT_SECONDS = 120
@@ -36,52 +37,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("worker")
 
-openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
-
 ADMIN_HEADERS = {
     "X-Admin-Key": ADMIN_API_KEY,
     "X-Admin-User-Id": TEST_USER_ID,
     "Content-Type": "application/json",
 }
 
-VISION_SYSTEM_PROMPT = """\
-You are a children's librarian AI assistant for the BookBeam app.
-
-You will be shown a photo of a bookshelf. Your job:
-1. Identify ALL visible books — look at spines, covers, any readable text.
-2. For each book, extract: title, author (if visible), and your confidence (0.0-1.0).
-3. Then, given the reader's profile info, recommend the top 3 books from the shelf \
-for this specific child, with a short kid-friendly explanation for each pick.
-4. Write a brief overall recommendation summary (2-3 sentences, kid-friendly tone).
-
-Respond ONLY with valid JSON matching this schema:
-{
-  "detected_books": [
-    {
-      "index": 0,
-      "title": "Book Title",
-      "author": "Author Name or null",
-      "confidence": 0.85,
-      "raw_ocr_text": "text you read from the spine"
-    }
-  ],
-  "recommendations": [
-    {
-      "title": "Book Title",
-      "author": "Author Name",
-      "reason": "Short kid-friendly reason why this book is great for you!"
-    }
-  ],
-  "recommendation_summary": "Hey there! I found some awesome books on this shelf..."
+STAGE_TO_STATUS = {
+    "detect": "detecting",
+    "ocr": "reading",
+    "normalize": "looking_up",
+    "recommend": "recommending",
 }
-
-Rules:
-- Include ALL books you can identify, even if partially visible.
-- For author, use null if you truly cannot determine it.
-- Confidence should reflect how sure you are about the identification.
-- Recommendations must reference books from the detected_books list.
-- Keep recommendation language fun and age-appropriate.
-"""
 
 
 def get_pending_scans():
@@ -93,7 +60,7 @@ def get_pending_scans():
                 """
                 SELECT s.id, s.image_url, s.reader_comment, s.reader_profile_id
                 FROM scan s
-                WHERE s.processing_status = 'detecting'
+                WHERE s.processing_status = 'pending'
                   AND s.processing_task_id IS NULL
                 ORDER BY s.created_at ASC
                 LIMIT 5
@@ -142,12 +109,12 @@ def recover_stale_scans():
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            # Find scans in intermediate states that are old enough to be stale
             cur.execute(
                 """
                 SELECT id, processing_task_id
                 FROM scan
-                WHERE processing_status IN ('reading', 'looking_up', 'recommending')
+                WHERE (processing_status IN ('detecting', 'reading', 'looking_up', 'recommending')
+                   OR (processing_status = 'pending' AND processing_task_id IS NOT NULL))
                   AND processing_task_started < now() - interval '%s seconds'
                 """,
                 (STALE_TASK_TIMEOUT_SECONDS,),
@@ -160,7 +127,7 @@ def recover_stale_scans():
                 cur.execute(
                     """
                     UPDATE scan
-                    SET processing_task_id = NULL, processing_status = 'detecting'
+                    SET processing_task_id = NULL, processing_status = 'pending'
                     WHERE id = %s
                     """,
                     (stale_id,),
@@ -171,26 +138,26 @@ def recover_stale_scans():
         conn.close()
 
 
-def api_get(path: str) -> dict:
-    """GET request to the backend API with admin auth."""
+class TaskOrphanedError(Exception):
+    """Raised when the backend returns 409 — this task has been superseded."""
+
+
+def sync_api_get(path: str) -> dict:
+    """Synchronous GET request to the backend API with admin auth."""
     resp = httpx.get(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, timeout=30)
     resp.raise_for_status()
     return resp.json()
 
 
-def api_post(path: str, body: dict) -> dict:
-    """POST request to the backend API with admin auth."""
+def sync_api_post(path: str, body: dict) -> dict:
+    """Synchronous POST request to the backend API with admin auth."""
     resp = httpx.post(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, json=body, timeout=30)
     resp.raise_for_status()
     return resp.json()
 
 
-class TaskOrphanedError(Exception):
-    """Raised when the backend returns 409 — this task has been superseded."""
-
-
-def api_patch(path: str, body: dict) -> dict:
-    """PATCH request to the backend API with admin auth. Raises TaskOrphanedError on 409."""
+def sync_api_patch(path: str, body: dict) -> dict:
+    """Synchronous PATCH request to the backend API. Raises TaskOrphanedError on 409."""
     resp = httpx.patch(f"{API_BASE_URL}{path}", headers=ADMIN_HEADERS, json=body, timeout=30)
     if resp.status_code == 409:
         raise TaskOrphanedError(f"Task orphaned: {resp.json().get('error', 'task ID mismatch')}")
@@ -200,14 +167,18 @@ def api_patch(path: str, body: dict) -> dict:
 
 def get_reader_context(profile_id: str) -> str:
     """Fetch reader profile and history to provide context for recommendations."""
-    profile = api_get(f"/api/profiles/{profile_id}")
-    history = api_get(f"/api/profiles/{profile_id}/history")
+    profile = sync_api_get(f"/api/profiles/{profile_id}")
+    history = sync_api_get(f"/api/profiles/{profile_id}/history")
 
     parts = []
     if profile.get("name"):
         parts.append(f"Reader name: {profile['name']}")
-    if profile.get("birthYear"):
-        parts.append(f"Birth year: {profile['birthYear']}")
+    if profile.get("age"):
+        parts.append(f"Age: {'Adult' if profile['age'] == 99 else profile['age']}")
+    if profile.get("grade") is not None:
+        grade_val = profile["grade"]
+        grade_display = "N/A" if grade_val == 99 else ("K" if grade_val == 0 else str(grade_val))
+        parts.append(f"Grade: {grade_display}")
     if profile.get("interests"):
         parts.append(f"Interests: {', '.join(profile['interests'])}")
     if profile.get("languages"):
@@ -236,75 +207,18 @@ def get_reader_context(profile_id: str) -> str:
     return "\n".join(parts) if parts else "No reader profile info available."
 
 
-def load_image_as_base64(image_url: str) -> tuple[str, str]:
-    """Fetch image via backend proxy and return base64 + media type."""
+def load_image_as_base64(image_url: str) -> str:
+    """Fetch image via backend proxy and return base64."""
     url = f"{API_BASE_URL}{image_url}"
     resp = httpx.get(url, headers=ADMIN_HEADERS, timeout=30)
     resp.raise_for_status()
-
-    media_type = resp.headers.get("content-type", "image/jpeg")
-    data = base64.b64encode(resp.content).decode("utf-8")
-    return data, media_type
+    return base64.b64encode(resp.content).decode("utf-8")
 
 
-def _parse_llm_json(raw_text: str) -> dict:
-    """Strip markdown fences and parse JSON from LLM response."""
-    text = raw_text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = [l for l in lines[1:] if not l.strip().startswith("```")]
-        text = "\n".join(lines)
-    return json.loads(text)
+def _process_scan_sync(scan_row: dict, task_id: str):
+    """Process a single scan synchronously (runs in a thread).
 
-
-def call_vision_api(image_b64: str, media_type: str, reader_context: str, reader_comment: str | None) -> dict:
-    """Send the shelf image to GPT vision and parse the response. Retries once on malformed JSON."""
-    user_message = f"Reader profile:\n{reader_context}"
-    if reader_comment:
-        user_message += f"\n\nThe reader says: \"{reader_comment}\""
-    user_message += "\n\nPlease analyze the bookshelf photo and provide your response."
-
-    messages = [
-        {"role": "system", "content": VISION_SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_message},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{media_type};base64,{image_b64}",
-                    },
-                },
-            ],
-        },
-    ]
-
-    for attempt in range(2):
-        response = openai_client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.3,
-        )
-
-        raw_text = response.choices[0].message.content
-        try:
-            return _parse_llm_json(raw_text)
-        except json.JSONDecodeError:
-            if attempt == 0:
-                log.warning("Malformed JSON from LLM, retrying (attempt %d)", attempt + 1)
-                messages.append({"role": "assistant", "content": raw_text})
-                messages.append({"role": "user", "content": "Your response was not valid JSON. Please respond with ONLY valid JSON matching the schema."})
-            else:
-                raise ValueError(f"LLM returned invalid JSON after retry: {raw_text[:500]}")
-
-
-def process_scan(scan_row: dict, task_id: str):
-    """Process a single scan: detect books, upsert them, generate recommendations.
-
-    All PATCH calls include the task_id so the backend can reject stale writes.
-    Raises TaskOrphanedError if the scan was reprocessed mid-flight.
+    Uses the 4-stage pipeline: detect -> OCR -> normalize -> recommend.
     """
     scan_id = scan_row["id"]
     image_url = scan_row["image_url"]
@@ -315,42 +229,48 @@ def process_scan(scan_row: dict, task_id: str):
 
     def patch_scan(body: dict) -> dict:
         body["processing_task_id"] = task_id
-        return api_patch(f"/api/scans/{scan_id}", body)
+        return sync_api_patch(f"/api/scans/{scan_id}", body)
 
-    # Step 1: Update status to 'reading'
-    patch_scan({"processing_status": "reading"})
+    def status_callback(stage_name: str):
+        """Called by the pipeline orchestrator when a stage starts."""
+        db_status = STAGE_TO_STATUS.get(stage_name)
+        if db_status:
+            patch_scan({"processing_status": db_status})
 
-    # Step 2: Load image
-    image_b64, media_type = load_image_as_base64(image_url)
-    log.info("Loaded image (%s, %d bytes base64)", media_type, len(image_b64))
+    # Load image as base64
+    image_b64 = load_image_as_base64(image_url)
+    log.info("Loaded image (%d bytes base64)", len(image_b64))
 
-    # Step 3: Get reader context for personalized recommendations
+    # Get reader context for personalized recommendations
     reader_context = "No reader profile available."
     if profile_id:
         reader_context = get_reader_context(profile_id)
 
-    # Step 4: Update status to 'looking_up' (calling the LLM)
-    patch_scan({"processing_status": "looking_up"})
+    # Run the full 4-stage pipeline
+    result = run_full_pipeline(
+        image_source=image_b64,
+        reader_context=reader_context,
+        reader_comment=reader_comment,
+        is_base64=True,
+        status_callback=status_callback,
+    )
 
-    # Step 5: Call vision API (single call for detect + recommend)
-    result = call_vision_api(image_b64, media_type, reader_context, reader_comment)
-    log.info("Vision API returned %d detected books", len(result.get("detected_books", [])))
-
-    # Step 6: Update status to 'recommending' while we upsert books
-    patch_scan({"processing_status": "recommending"})
-
-    # Step 7: Upsert each detected book into the books table
     detected_books = result.get("detected_books", [])
+    log.info("Pipeline returned %d detected books", len(detected_books))
+
+    # Upsert each detected book into the books table
     for i, detected in enumerate(detected_books):
+        if not detected.get("title"):
+            continue
         book_data = {
             "title": detected["title"],
             "author": detected.get("author"),
         }
-        book_record = api_post("/api/books", book_data)
+        book_record = sync_api_post("/api/books", book_data)
         detected_books[i]["book_id"] = book_record["id"]
         log.info("Upserted book: %s -> %s", detected["title"], book_record["id"])
 
-    # Step 8: Final update — set detected_books, recommendation, summary, and status to 'done'
+    # Final update — set detected_books, recommendation, summary, and status to 'done'
     recommendations = result.get("recommendations", [])
     recommendation_summary = result.get("recommendation_summary", "")
 
@@ -365,51 +285,79 @@ def process_scan(scan_row: dict, task_id: str):
              scan_id, len(detected_books), len(recommendations))
 
 
-def main():
-    """Main polling loop."""
+async def process_scan(scan_row: dict, task_id: str):
+    """Async wrapper that runs the synchronous pipeline in a thread."""
+    await asyncio.to_thread(_process_scan_sync, scan_row, task_id)
+
+
+async def main():
+    """Main async polling loop with concurrent scan processing."""
     log.info("BookBeam worker starting...")
     log.info("API base: %s", API_BASE_URL)
-    log.info("Poll interval: %ds", POLL_INTERVAL_SECONDS)
+    log.info("Poll interval: %ds, max concurrent: %d", POLL_INTERVAL_SECONDS, MAX_CONCURRENT_SCANS)
+
+    active_tasks: set[asyncio.Task] = set()
 
     while True:
         try:
             # Recover any scans stuck from a previous crash/restart
-            recover_stale_scans()
+            await asyncio.to_thread(recover_stale_scans)
 
-            scans = get_pending_scans()
+            scans = await asyncio.to_thread(get_pending_scans)
             if scans:
                 log.info("Found %d pending scan(s)", len(scans))
                 for scan_row in scans:
+                    if len(active_tasks) >= MAX_CONCURRENT_SCANS:
+                        break
+
                     scan_id = scan_row["id"]
-                    task_id = claim_scan(scan_id)
+                    task_id = await asyncio.to_thread(claim_scan, scan_id)
                     if not task_id:
                         log.info("Scan %s already claimed, skipping", scan_id)
                         continue
 
                     active_task_ids.add(task_id)
-                    try:
-                        process_scan(scan_row, task_id)
-                    except TaskOrphanedError:
-                        log.info("Scan %s task %s was orphaned (reprocessed), skipping", scan_id, task_id)
-                    except Exception as exc:
-                        log.error("Failed to process scan %s: %s", scan_id, exc, exc_info=True)
+
+                    async def _run(sr=scan_row, tid=task_id):
                         try:
-                            api_patch(f"/api/scans/{scan_id}", {
-                                "processing_status": "failed",
-                                "processing_task_id": task_id,
-                                "recommendation_summary": f"Processing error: {exc}",
-                            })
+                            await process_scan(sr, tid)
                         except TaskOrphanedError:
-                            log.info("Scan %s was reprocessed, not marking as failed", scan_id)
-                        except Exception as patch_exc:
-                            log.error("Failed to mark scan %s as failed: %s", scan_id, patch_exc)
-                    finally:
-                        active_task_ids.discard(task_id)
+                            log.info("Scan %s task %s was orphaned (reprocessed), skipping", sr["id"], tid)
+                        except Exception as exc:
+                            log.error("Failed to process scan %s: %s", sr["id"], exc, exc_info=True)
+                            try:
+                                await asyncio.to_thread(
+                                    sync_api_patch,
+                                    f"/api/scans/{sr['id']}",
+                                    {
+                                        "processing_status": "failed",
+                                        "processing_task_id": tid,
+                                        "recommendation_summary": "Something went wrong processing this shelf. Please try again.",
+                                    },
+                                )
+                            except TaskOrphanedError:
+                                log.info("Scan %s was reprocessed, not marking as failed", sr["id"])
+                            except Exception as patch_exc:
+                                log.error("Failed to mark scan %s as failed: %s", sr["id"], patch_exc)
+                        finally:
+                            active_task_ids.discard(tid)
+
+                    task = asyncio.create_task(_run())
+                    active_tasks.add(task)
+
+            # Cleanup completed tasks
+            done = {t for t in active_tasks if t.done()}
+            for t in done:
+                # Surface any unhandled exceptions from tasks
+                if t.exception():
+                    log.error("Task raised unhandled exception: %s", t.exception())
+            active_tasks -= done
+
         except Exception as exc:
             log.error("Poll cycle error: %s", exc, exc_info=True)
 
-        time.sleep(POLL_INTERVAL_SECONDS)
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, getAuth } from "@clerk/express";
+import { requireAuth } from "@clerk/express";
 import OpenAI from "openai";
 import { db } from "../db";
-import { bookHistoryEntry, book } from "../db/schema";
-import { eq, desc } from "drizzle-orm";
+import { bookHistoryEntry, book, readerProfile } from "../db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { resolveAppUser } from "../lib/resolve-user";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? (() => { throw new Error("Missing required env OPENAI_API_KEY"); })();
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL ?? (() => { throw new Error("Missing required env OPENAI_BASE_URL"); })();
@@ -83,8 +84,8 @@ type ParsedBookEntry = {
 const router = Router();
 
 router.post("/api/reading-log/parse", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
 
   const { text, profile_id } = req.body;
   if (!text || typeof text !== "string" || text.trim().length === 0) {
@@ -93,6 +94,14 @@ router.post("/api/reading-log/parse", requireAuth(), async (req: Request, res: R
   }
   if (!profile_id || typeof profile_id !== "string") {
     res.status(400).json({ error: "profile_id field is required" });
+    return;
+  }
+
+  // Verify profile belongs to this user
+  const profileRows = await db.select({ id: readerProfile.id }).from(readerProfile)
+    .where(and(eq(readerProfile.id, profile_id), eq(readerProfile.userId, user.id)));
+  if (profileRows.length === 0) {
+    res.status(404).json({ error: "Reader profile not found" });
     return;
   }
 

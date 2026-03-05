@@ -1,15 +1,29 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, getAuth } from "@clerk/express";
+import { requireAuth } from "@clerk/express";
 import { db } from "../db";
-import { bookHistoryEntry, book } from "../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { bookHistoryEntry, book, readerProfile } from "../db/schema";
+import { eq, and, desc, asc } from "drizzle-orm";
+import { resolveAppUser } from "../lib/resolve-user";
 
 const router = Router();
 
+async function verifyProfileOwnership(profileId: string, userId: string, res: Response): Promise<boolean> {
+  const profiles = await db
+    .select()
+    .from(readerProfile)
+    .where(and(eq(readerProfile.id, profileId), eq(readerProfile.userId, userId)));
+  if (profiles.length === 0) {
+    res.status(404).json({ error: "Profile not found" });
+    return false;
+  }
+  return true;
+}
+
 // List history entries for a profile, joined with book data
 router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+  if (!(await verifyProfileOwnership(req.params.profileId as string, user.id, res))) return;
 
   const rows = await db
     .select({
@@ -18,16 +32,17 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     })
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
-    .where(eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)))
-    .orderBy(desc(bookHistoryEntry.createdAt));
+    .where(eq(bookHistoryEntry.readerProfileId, req.params.profileId as string))
+    .orderBy(asc(bookHistoryEntry.createdAt), asc(bookHistoryEntry.id));
 
   res.json(rows);
 });
 
 // Add book to history
 router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+  if (!(await verifyProfileOwnership(req.params.profileId as string, user.id, res))) return;
 
   const { book_id, source, source_id, status, comment, reactions } = req.body;
   if (!book_id || !source) {
@@ -41,7 +56,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
     .from(bookHistoryEntry)
     .where(
       and(
-        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
+        eq(bookHistoryEntry.readerProfileId, req.params.profileId as string),
         eq(bookHistoryEntry.bookId, book_id),
       )
     );
@@ -54,7 +69,7 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
   const inserted = await db
     .insert(bookHistoryEntry)
     .values({
-      readerProfileId: String(req.params.profileId),
+      readerProfileId: req.params.profileId as string,
       bookId: book_id,
       source,
       sourceId: source_id || null,
@@ -69,8 +84,9 @@ router.post("/api/profiles/:profileId/history", requireAuth(), async (req: Reque
 
 // Update history entry (reactions, status)
 router.patch("/api/profiles/:profileId/history/:entryId", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+  if (!(await verifyProfileOwnership(req.params.profileId as string, user.id, res))) return;
 
   const { reactions, status, comment } = req.body;
 
@@ -84,8 +100,8 @@ router.patch("/api/profiles/:profileId/history/:entryId", requireAuth(), async (
     .set(updates)
     .where(
       and(
-        eq(bookHistoryEntry.id, String(req.params.entryId)),
-        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
+        eq(bookHistoryEntry.id, req.params.entryId as string),
+        eq(bookHistoryEntry.readerProfileId, req.params.profileId as string),
       )
     )
     .returning();
@@ -100,15 +116,16 @@ router.patch("/api/profiles/:profileId/history/:entryId", requireAuth(), async (
 
 // Delete history entry
 router.delete("/api/profiles/:profileId/history/:entryId", requireAuth(), async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+  if (!(await verifyProfileOwnership(req.params.profileId as string, user.id, res))) return;
 
   const deleted = await db
     .delete(bookHistoryEntry)
     .where(
       and(
-        eq(bookHistoryEntry.id, String(req.params.entryId)),
-        eq(bookHistoryEntry.readerProfileId, String(req.params.profileId)),
+        eq(bookHistoryEntry.id, req.params.entryId as string),
+        eq(bookHistoryEntry.readerProfileId, req.params.profileId as string),
       )
     )
     .returning();

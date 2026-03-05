@@ -95,7 +95,8 @@ export type ProfileData = {
   userId: string;
   name: string;
   avatarKey: string | null;
-  birthYear: number | null;
+  age: number | null;
+  grade: number | null;
   gender: string | null;
   languages: string[] | null;
   interests: string[] | null;
@@ -119,13 +120,21 @@ export function createProfile(
   });
 }
 
+export function deleteProfile(token: string, profileId: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/profiles/${profileId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export function updateProfile(
   token: string,
   profileId: string,
   data: Partial<{
     name: string;
     avatar_key: string;
-    birth_year: number;
+    age: number;
+    grade: number;
     gender: string;
     languages: string[];
     interests: string[];
@@ -162,10 +171,13 @@ export type DetectedBook = {
   book_id?: string;
 };
 
-export type ScanRecommendation = {
-  text: string;
-  top_picks?: string[];
+export type ScanRecommendationPick = {
+  title: string;
+  author?: string;
+  reason: string;
 };
+
+export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };
 
 export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string }> {
   const formData = new FormData();
@@ -205,6 +217,13 @@ export function getScans(token: string, readerProfileId: string) {
 
 export function getScan(token: string, scanId: string) {
   return apiFetch<ScanData>(`/api/scans/${scanId}`, { token });
+}
+
+export function deleteScan(token: string, scanId: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/scans/${scanId}`, {
+    method: "DELETE",
+    token,
+  });
 }
 
 export function updateScan(

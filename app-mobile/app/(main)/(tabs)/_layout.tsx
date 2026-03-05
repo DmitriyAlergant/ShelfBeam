@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { colors, fonts, radius, shadows, spacing } from "../../../lib/theme";
@@ -8,13 +8,25 @@ import { Redirect } from "expo-router";
 import { ProfileSwitcher } from "../../../components/ProfileSwitcher";
 
 const TAB_META: Record<string, { emoji: string }> = {
-  index: { emoji: "🔍" },
+  index: { emoji: "👤" },
   books: { emoji: "📚" },
-  profile: { emoji: "👤" },
+  scan: { emoji: "🔍" },
 };
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { pendingSave } = useAppContext();
+
+  const handleTabPress = (routeName: string, focused: boolean) => {
+    if (focused) return;
+    if (pendingSave) {
+      pendingSave().catch(() => {
+        Alert.alert("Save Error", "Your changes could not be saved.");
+      });
+    }
+    navigation.navigate(routeName);
+  };
+
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       {state.routes.map((route, index) => {
@@ -30,7 +42,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         return (
           <Pressable
             key={route.key}
-            onPress={() => navigation.navigate(route.name)}
+            onPress={() => handleTabPress(route.name, focused)}
             style={[styles.tabButton, focused && styles.tabButtonActive]}
           >
             <View style={styles.emojiWrap}>
@@ -62,15 +74,15 @@ export default function TabsLayout() {
       >
         <Tabs.Screen
           name="index"
-          options={{ title: "Scan" }}
+          options={{ title: "Profile" }}
         />
         <Tabs.Screen
           name="books"
-          options={{ title: "History" }}
+          options={{ title: "Reading History" }}
         />
         <Tabs.Screen
-          name="profile"
-          options={{ title: "Profile" }}
+          name="scan"
+          options={{ title: "Scan" }}
         />
         <Tabs.Screen
           name="scan-detail"
