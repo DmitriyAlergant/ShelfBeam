@@ -11,12 +11,12 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAppAuth } from "../../lib/auth";
+import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
-import { useAppContext } from "../../lib/AppContext";
+import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
+import { useAppContext } from "../../../lib/AppContext";
 import {
   getScan,
   updateScan,
@@ -25,7 +25,7 @@ import {
   getImageUrl,
   type ScanData,
   type DetectedBook,
-} from "../../lib/api";
+} from "../../../lib/api";
 
 const PROCESSING_STEPS = [
   { key: "detecting", label: "Finding books...", emoji: "🔍" },
@@ -56,6 +56,7 @@ export default function ScanDetailScreen() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const commentTouched = useRef(false);
 
   const fetchScan = useCallback(async () => {
     if (!id) return;
@@ -63,7 +64,7 @@ export default function ScanDetailScreen() {
     if (!token) return;
     const data = await getScan(token, id);
     setScan(data);
-    if (data.readerComment && !comment) {
+    if (data.readerComment != null && comment === "" && !commentTouched.current) {
       setComment(data.readerComment);
     }
     return data;
@@ -98,11 +99,11 @@ export default function ScanDetailScreen() {
   }, [scan?.processingStatus, id, getToken]);
 
   const saveComment = useCallback(async () => {
-    if (!id || !comment.trim()) return;
+    if (!id) return;
     setSavingComment(true);
     const token = await getToken();
     if (!token) { setSavingComment(false); return; }
-    const updated = await updateScan(token, id, { reader_comment: comment.trim() });
+    const updated = await updateScan(token, id, { reader_comment: comment.trim() || null });
     setScan(updated);
     setSavingComment(false);
   }, [id, comment, getToken]);
@@ -175,14 +176,24 @@ export default function ScanDetailScreen() {
 
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
+    // Immediately clear results locally so UI shows processing state
+    setScan((prev) => prev ? {
+      ...prev,
+      processingStatus: "detecting",
+      recommendation: null,
+      recommendationSummary: null,
+      detectedBooks: null,
+    } : prev);
     const token = await getToken();
     if (!token) return;
-    const updated = await updateScan(token, id, {
-      processing_status: "recommending",
-      recommendation: undefined,
-      recommendation_summary: undefined,
+    // Reset to detecting with null task_id so the worker picks it up fresh
+    await updateScan(token, id, {
+      processing_status: "detecting",
+      processing_task_id: null,
+      detected_books: null,
+      recommendation: null,
+      recommendation_summary: null,
     });
-    setScan(updated);
   }, [id, getToken]);
 
   if (loading || !scan) {
@@ -224,7 +235,7 @@ export default function ScanDetailScreen() {
           />
           <View style={styles.imageToggle}>
             <Text style={styles.imageToggleText}>
-              {imageExpanded ? "▲ Collapse" : "▼ Expand"}
+              {imageExpanded ? "⌃" : "⌄"}
             </Text>
           </View>
         </TouchableOpacity>
@@ -232,12 +243,12 @@ export default function ScanDetailScreen() {
 
       {/* Reader comment */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>What are you looking for today?</Text>
+        <Text style={styles.sectionLabel}>Any special wishes for today?</Text>
         <View style={styles.commentRow}>
           <TextInput
             style={styles.commentInput}
             value={comment}
-            onChangeText={setComment}
+            onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
             placeholder="e.g. Something funny with animals..."
             placeholderTextColor={colors.inkLight}
             onBlur={saveComment}
@@ -246,6 +257,11 @@ export default function ScanDetailScreen() {
           />
           {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
         </View>
+        {comment.trim().length > 0 && isDone && (
+          <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+            <Text style={styles.refreshRecoText}>Refresh Recommendations</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Processing stepper */}
@@ -322,10 +338,7 @@ export default function ScanDetailScreen() {
             return (
               <View
                 key={`${book.title}-${idx}`}
-                style={[
-                  styles.bookCard,
-                  { transform: [{ rotate: idx % 2 === 0 ? "0.5deg" : "-0.5deg" }] },
-                ]}
+                style={styles.bookCard}
               >
                 {book.cover_url ? (
                   <Image
@@ -383,9 +396,6 @@ export default function ScanDetailScreen() {
           {scan.recommendation && typeof scan.recommendation === "object" && "text" in scan.recommendation && (
             <Text style={styles.recoText}>{scan.recommendation.text}</Text>
           )}
-          <TouchableOpacity style={styles.rerunButton} onPress={rerunRecommendation}>
-            <Text style={styles.rerunText}>🔄 Get New Picks</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -670,17 +680,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: spacing.md,
   },
-  rerunButton: {
+  refreshRecoButton: {
     alignSelf: "flex-start",
-    backgroundColor: colors.bgWarm,
+    backgroundColor: colors.pageTeal,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
   },
-  rerunText: {
+  refreshRecoText: {
     fontSize: 13,
     fontFamily: fonts.headingMedium,
-    color: colors.inkDark,
+    color: "#fff",
   },
 
   // Toast

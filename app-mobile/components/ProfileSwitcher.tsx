@@ -51,7 +51,7 @@ export function ProfileSwitcher() {
 
   return (
     <>
-      <View style={[styles.bar, { paddingTop: insets.top + spacing.xs }]}>
+      <View style={[styles.bar, { paddingTop: insets.top + spacing.md }]}>
         <TouchableOpacity
           style={styles.profileButton}
           onPress={openSheet}
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.bgWarm,
   },

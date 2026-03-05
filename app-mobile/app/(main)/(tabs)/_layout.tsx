@@ -52,6 +52,10 @@ export default function TabsLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="scan-detail"
+          options={{ href: null }}
+        />
       </Tabs>
     </>
   );
@@ -73,6 +77,7 @@ const styles = StyleSheet.create({
     ...shadows.tabBar,
     height: 88,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   tabLabel: {
     fontSize: 11,

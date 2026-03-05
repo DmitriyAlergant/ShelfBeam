@@ -212,10 +212,11 @@ export function updateScan(
   scanId: string,
   data: Partial<{
     processing_status: string;
-    detected_books: DetectedBook[];
-    recommendation: ScanRecommendation;
-    recommendation_summary: string;
-    reader_comment: string;
+    processing_task_id: string | null;
+    detected_books: DetectedBook[] | null;
+    recommendation: ScanRecommendation | null;
+    recommendation_summary: string | null;
+    reader_comment: string | null;
   }>
 ) {
   return apiFetch<ScanData>(`/api/scans/${scanId}`, {
@@ -312,16 +313,18 @@ export type ParsedBookEntry = {
   title: string;
   author?: string;
   is_series?: boolean;
-  inferred_status?: string;
-  inferred_reactions?: string[];
+  inferred_status?: string | null;
+  inferred_reactions?: string[] | null;
   comment?: string | null;
+  entry_type: "new" | "update";
+  existing_history_entry_id?: string | null;
 };
 
-export async function parseReadingLog(token: string, text: string): Promise<ParsedBookEntry[]> {
+export async function parseReadingLog(token: string, text: string, profileId: string): Promise<ParsedBookEntry[]> {
   const res = await apiFetch<{ parsed: ParsedBookEntry[]; raw_input: string }>("/api/reading-log/parse", {
     method: "POST",
     token,
-    body: { text },
+    body: { text, profile_id: profileId },
   });
   return res.parsed;
 }

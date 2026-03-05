@@ -34,7 +34,6 @@ export default function EmojiReactions({ reactions, onToggle, compact }: Props) 
             onPress={() => onToggle(emoji)}
           >
             <Text style={[styles.chipEmoji, compact && styles.chipEmojiCompact]}>{emoji}</Text>
-            <Text style={[styles.chipX, compact && styles.chipXCompact]}>✕</Text>
           </TouchableOpacity>
         ))}
         {available.length > 0 && (
@@ -92,33 +91,24 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
     backgroundColor: colors.bgWarm,
     borderWidth: 1.5,
     borderColor: colors.inkLight,
     borderRadius: radius.xl,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
   },
   chipCompact: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
+    width: 32,
+    height: 32,
   },
   chipEmoji: {
     fontSize: 20,
   },
   chipEmojiCompact: {
     fontSize: 16,
-  },
-  chipX: {
-    fontSize: 12,
-    color: colors.inkMedium,
-    marginLeft: 2,
-  },
-  chipXCompact: {
-    fontSize: 10,
   },
   addButton: {
     width: 40,
@@ -131,9 +121,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addButtonCompact: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   addPlus: {
     fontSize: 20,

@@ -1,7 +1,7 @@
 export const STATUS_OPTIONS = [
-  { key: "reading", label: "Currently Reading", emoji: "📖" },
+  { key: "abandoned", label: "Dropped", emoji: "🚫" },
+  { key: "reading", label: "Reading", emoji: "📖" },
   { key: "finished", label: "Finished", emoji: "✅" },
-  { key: "abandoned", label: "Abandoned", emoji: "🚫" },
 ];
 
 export const STATUS_LABELS: Record<string, string> = Object.fromEntries(

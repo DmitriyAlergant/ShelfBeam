@@ -59,7 +59,7 @@ export default function CameraScreen() {
       image_url,
     });
     setUploading(false);
-    router.replace(`/(main)/scan-detail?id=${scan.id}`);
+    router.replace(`/(main)/(tabs)/scan-detail?id=${scan.id}`);
   }, [capturedUri, activeProfile, getToken, router]);
 
   // Permission not yet determined

@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, getAuth } from "@clerk/express";
 import OpenAI from "openai";
+import { db } from "../db";
+import { bookHistoryEntry, book } from "../db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? (() => { throw new Error("Missing required env OPENAI_API_KEY"); })();
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL ?? (() => { throw new Error("Missing required env OPENAI_BASE_URL"); })();
@@ -11,7 +14,17 @@ const openai = new OpenAI({
   timeout: 30_000,
 });
 
-const SYSTEM_PROMPT = `You are a reading log parser for a kids' book app called BookBeam. A child (or their parent) will describe books they've been reading in freeform text. Your job is to extract structured book data from their input.
+type HistoryContext = {
+  history_entry_id: string;
+  title: string;
+  author: string | null;
+  status: string;
+  reactions: string[];
+  comment: string | null;
+};
+
+function buildSystemPrompt(history: HistoryContext[]): string {
+  const base = `You are a reading log parser for a kids' book app called BookBeam. A child (or their parent) will describe books they've been reading in freeform text. Your job is to extract structured book data from their input.
 
 For each book mentioned, extract:
 - title: The book title (best guess, capitalize properly). Do NOT append "(series)" to the title — use the is_series field instead.
@@ -29,23 +42,42 @@ For each book mentioned, extract:
   - If they hated it: 😡 and/or 👎
   - If no sentiment is expressed, use an empty array []
 - comment: The reader's own words/opinion about the book, extracted verbatim or closely paraphrased from their input. This is distinct from reactions — it captures what they actually said. null if they didn't say anything specific about the book beyond just mentioning it.
+- entry_type: "new" if this book is NOT in the reader's existing history, or "update" if it matches an existing history entry
+- existing_history_entry_id: The history_entry_id from the existing history (for updates), or null (for new books)
 
 Rules:
 - Kids may misspell titles or use informal language — do your best to identify the correct book title
 - If multiple books are mentioned, return all of them
 - Default to "finished" status unless they explicitly say they're currently reading or just started
-- Return ONLY a valid JSON array, no other text
+- Return ONLY a valid JSON array, no other text`;
 
-Example input: "I just finished Harry Potter and it was so amazing! Also started reading Diary of a Wimpy Kid with my brother, it's pretty funny"
-Example output: [{"title":"Harry Potter","author":"J.K. Rowling","is_series":true,"inferred_status":"finished","inferred_reactions":["❤️","👍"],"comment":"it was so amazing"},{"title":"Diary of a Wimpy Kid","author":"Jeff Kinney","is_series":true,"inferred_status":"reading","inferred_reactions":["😂"],"comment":"it's pretty funny"}]`;
+  if (history.length > 0) {
+    const historySection = `
+
+## Reader's Existing History
+The reader already has these books in their history:
+${JSON.stringify(history)}
+
+For each book the reader mentions:
+- If it matches an existing history entry (by title — fuzzy match for misspellings), classify as entry_type: "update" and set existing_history_entry_id to the matching history_entry_id.
+  For updates, only populate fields that have ACTUALLY CHANGED compared to the existing entry. Set unchanged fields to null.
+  If nothing meaningful has changed about a book, DO NOT include it in the output at all.
+- If it does NOT match any existing entry, classify as entry_type: "new" with existing_history_entry_id: null.`;
+    return base + historySection;
+  }
+
+  return base + `\n\nThe reader has no existing history. Classify all entries as entry_type: "new" with existing_history_entry_id: null.`;
+}
 
 type ParsedBookEntry = {
   title: string;
   author: string | null;
   is_series: boolean;
-  inferred_status: string;
-  inferred_reactions: string[];
+  inferred_status: string | null;
+  inferred_reactions: string[] | null;
   comment: string | null;
+  entry_type: "new" | "update";
+  existing_history_entry_id: string | null;
 };
 
 const router = Router();
@@ -54,20 +86,43 @@ router.post("/api/reading-log/parse", requireAuth(), async (req: Request, res: R
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { text } = req.body;
+  const { text, profile_id } = req.body;
   if (!text || typeof text !== "string" || text.trim().length === 0) {
     res.status(400).json({ error: "text field is required" });
     return;
   }
+  if (!profile_id || typeof profile_id !== "string") {
+    res.status(400).json({ error: "profile_id field is required" });
+    return;
+  }
+
+  // Fetch reader's existing history for LLM context
+  const historyRows = await db
+    .select({ entry: bookHistoryEntry, book: book })
+    .from(bookHistoryEntry)
+    .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
+    .where(eq(bookHistoryEntry.readerProfileId, profile_id))
+    .orderBy(desc(bookHistoryEntry.createdAt));
+
+  const historyContext: HistoryContext[] = historyRows.map((row) => ({
+    history_entry_id: row.entry.id,
+    title: row.book?.title ?? "Unknown",
+    author: row.book?.author ?? null,
+    status: row.entry.status ?? "reading",
+    reactions: (row.entry.reactions as string[]) ?? [],
+    comment: row.entry.comment ?? null,
+  }));
+
+  const systemPrompt = buildSystemPrompt(historyContext);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4.1-mini",
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: text.trim() },
     ],
     temperature: 0.3,
-    max_tokens: 1024,
+    max_tokens: 2048,
   });
 
   const raw = completion.choices[0]?.message?.content?.trim();
@@ -83,13 +138,13 @@ router.post("/api/reading-log/parse", requireAuth(), async (req: Request, res: R
     const retry = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: text.trim() },
         { role: "assistant", content: raw },
         { role: "user", content: "Your response was not valid JSON. Please return ONLY a valid JSON array with no additional text." },
       ],
       temperature: 0.1,
-      max_tokens: 1024,
+      max_tokens: 2048,
     });
 
     const retryRaw = retry.choices[0]?.message?.content?.trim();
