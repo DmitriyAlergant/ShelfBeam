@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import crypto from "crypto";
 import { db } from "../db";
-import { scan, readerProfile } from "../db/schema";
+import { scan, readerProfile, bookHistoryEntry } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { uploadFile } from "../lib/s3";
 import { resolveAppUser } from "../lib/resolve-user";
@@ -167,6 +167,31 @@ router.patch("/api/scans/:id", requireAuth(), async (req: Request, res: Response
   }
 
   res.json(updated[0]);
+});
+
+// Delete scan
+router.delete("/api/scans/:id", requireAuth(), async (req: Request, res: Response) => {
+  const user = await resolveAppUser(req, res);
+  if (!user) return;
+
+  // Ownership check: scan -> profile -> user
+  const rows = await db
+    .select({ scan: scan })
+    .from(scan)
+    .innerJoin(readerProfile, eq(scan.readerProfileId, readerProfile.id))
+    .where(and(eq(scan.id, req.params.id as string), eq(readerProfile.userId, user.id)));
+
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Scan not found" });
+    return;
+  }
+
+  await db.delete(bookHistoryEntry).where(
+    and(eq(bookHistoryEntry.source, "scan"), eq(bookHistoryEntry.sourceId, req.params.id as string))
+  );
+  await db.delete(scan).where(eq(scan.id, req.params.id as string));
+
+  res.json({ deleted: true });
 });
 
 export default router;

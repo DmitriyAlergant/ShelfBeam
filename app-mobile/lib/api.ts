@@ -217,6 +217,13 @@ export function getScan(token: string, scanId: string) {
   return apiFetch<ScanData>(`/api/scans/${scanId}`, { token });
 }
 
+export function deleteScan(token: string, scanId: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/scans/${scanId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export function updateScan(
   token: string,
   scanId: string,

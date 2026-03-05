@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,12 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
-import { getHistory, type HistoryWithBook } from "../../../lib/api";
+import { getHistory, deleteHistoryEntry, type HistoryWithBook } from "../../../lib/api";
 import { STATUS_EMOJI } from "../../../lib/reading-status";
+import SwipeToDelete from "../../../components/SwipeToDelete";
+import ConfirmModal from "../../../components/ConfirmModal";
 
 const SOURCE_LABELS: Record<string, string> = {
   scan: "Picked from scanned shelf",
@@ -26,6 +30,9 @@ export default function MyBooks() {
   const [entries, setEntries] = useState<HistoryWithBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const fetchHistory = useCallback(async () => {
     if (!activeProfile) return;
@@ -41,64 +48,99 @@ export default function MyBooks() {
     fetchHistory().finally(() => setLoading(false));
   }, [fetchHistory]);
 
+  // Re-fetch when screen regains focus (e.g. returning from book-detail)
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        fetchHistory();
+      }
+    }, [fetchHistory, loading])
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchHistory();
     setRefreshing(false);
   }, [fetchHistory]);
 
+  const handleDeleteCancel = useCallback(() => {
+    if (deletingEntryId) {
+      swipeableRefs.current.get(deletingEntryId)?.close();
+    }
+    setDeletingEntryId(null);
+  }, [deletingEntryId]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingEntryId || !activeProfile) return;
+    setDeleteLoading(true);
+    const token = await getToken();
+    if (!token) return;
+    await deleteHistoryEntry(token, activeProfile.id, deletingEntryId);
+    setEntries((prev) => prev.filter((e) => e.entry.id !== deletingEntryId));
+    setDeleteLoading(false);
+    setDeletingEntryId(null);
+  }, [deletingEntryId, activeProfile, getToken]);
+
   const renderBookCard = useCallback(
     ({ item }: { item: HistoryWithBook }) => {
       const { entry, book } = item;
       if (!book) return null;
       return (
-        <TouchableOpacity
-          style={styles.bookCard}
-          activeOpacity={0.8}
-          onPress={() =>
-            router.push(
-              `/(main)/book-detail?entryId=${entry.id}&bookId=${book.id}`
-            )
-          }
+        <SwipeToDelete
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(entry.id, ref);
+            else swipeableRefs.current.delete(entry.id);
+          }}
+          onDelete={() => setDeletingEntryId(entry.id)}
         >
-          <View style={styles.bookCoverPlaceholder}>
-            <Text style={styles.bookCoverEmoji}>📕</Text>
-          </View>
-          <View style={styles.bookInfo}>
-            <Text style={styles.bookTitle} numberOfLines={2}>
-              {book.title}
-            </Text>
-            {book.author && (
-              <Text style={styles.bookAuthor} numberOfLines={1}>
-                {book.author}
+          <TouchableOpacity
+            style={styles.bookCard}
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push(
+                `/(main)/book-detail?entryId=${entry.id}&bookId=${book.id}`
+              )
+            }
+          >
+            <View style={styles.bookCoverPlaceholder}>
+              <Text style={styles.bookCoverEmoji}>📕</Text>
+            </View>
+            <View style={styles.bookInfo}>
+              <Text style={styles.bookTitle} numberOfLines={2}>
+                {book.title}
               </Text>
-            )}
-            <View style={styles.bookMeta}>
-              <View style={[
-                styles.statusBadge,
-                entry.status === "reading" && styles.statusBadgeReading,
-                entry.status === "finished" && styles.statusBadgeFinished,
-                entry.status === "abandoned" && styles.statusBadgeAbandoned,
-              ]}>
-                <Text style={styles.statusBadgeText}>
-                  {STATUS_EMOJI[entry.status] || ""} {entry.status}
+              {book.author && (
+                <Text style={styles.bookAuthor} numberOfLines={1}>
+                  {book.author}
                 </Text>
-              </View>
-              {SOURCE_LABELS[entry.source] && (
-                <View style={styles.sourceBadge}>
-                  <Text style={styles.sourceText}>
-                    {SOURCE_LABELS[entry.source]}
+              )}
+              <View style={styles.bookMeta}>
+                <View style={[
+                  styles.statusBadge,
+                  entry.status === "reading" && styles.statusBadgeReading,
+                  entry.status === "finished" && styles.statusBadgeFinished,
+                  entry.status === "abandoned" && styles.statusBadgeAbandoned,
+                ]}>
+                  <Text style={styles.statusBadgeText}>
+                    {STATUS_EMOJI[entry.status] || ""} {entry.status}
                   </Text>
                 </View>
-              )}
-              {entry.reactions && entry.reactions.length > 0 && (
-                <Text style={styles.reactions}>
-                  {entry.reactions.join(" ")}
-                </Text>
-              )}
+                {SOURCE_LABELS[entry.source] && (
+                  <View style={styles.sourceBadge}>
+                    <Text style={styles.sourceText}>
+                      {SOURCE_LABELS[entry.source]}
+                    </Text>
+                  </View>
+                )}
+                {entry.reactions && entry.reactions.length > 0 && (
+                  <Text style={styles.reactions}>
+                    {entry.reactions.join(" ")}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </SwipeToDelete>
       );
     },
     [router]
@@ -122,7 +164,7 @@ export default function MyBooks() {
         onPress={() => router.push("/(main)/reading-log-entry")}
       >
         <Text style={styles.ctaEmoji}>✏️</Text>
-        <Text style={styles.ctaText}>Tell us what you&apos;ve read</Text>
+        <Text style={styles.ctaText}>Tell us what you read already</Text>
       </TouchableOpacity>
 
       {entries.length === 0 ? (
@@ -149,6 +191,17 @@ export default function MyBooks() {
           }
         />
       )}
+
+      <ConfirmModal
+        visible={deletingEntryId !== null}
+        title="Remove Book?"
+        message="This will remove the book from your reading history."
+        confirmLabel="Remove"
+        destructive
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </View>
   );
 }

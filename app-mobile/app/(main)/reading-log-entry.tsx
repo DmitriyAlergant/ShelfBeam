@@ -61,9 +61,9 @@ export default function ReadingLogEntryScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.header}>Tell us what you&apos;ve read</Text>
+        <Text style={styles.header}>Tell us what books you&apos;ve read</Text>
         <Text style={styles.subtitle}>
-          Type or dictate what you&apos;ve been reading. We&apos;ll figure out the rest!
+          Knowing what you've already read will help us recommend you new books. Type or dictate a bit about the books you read lately and liked, or didn't like. Share your emotions.
         </Text>
 
         <TextInput
@@ -96,7 +96,7 @@ export default function ReadingLogEntryScreen() {
           {submitting ? (
             <ActivityIndicator size="small" color={colors.inkDark} />
           ) : (
-            <Text style={styles.submitText}>See what we found</Text>
+            <Text style={styles.submitText}>Process</Text>
           )}
         </TouchableOpacity>
       </View>
