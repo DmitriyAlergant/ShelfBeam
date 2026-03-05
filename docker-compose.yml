@@ -121,7 +121,6 @@ services:
       - "4321:4321"
     environment:
       LANDING_IOS_QR_URL: ${LANDING_IOS_QR_URL}
-      LANDING_ANDROID_QR_URL: ${LANDING_ANDROID_QR_URL}
     volumes:
       - ./landing/src:/app/src
       - ./landing/public:/app/public

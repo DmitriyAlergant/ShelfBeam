@@ -37,8 +37,8 @@ def _load_model():
 
     model_name = os.environ["MLX_OCR_MODEL"]
     log.info("Loading model %s ...", model_name)
-    _model, _processor = load(model_name)
-    _config = load_config(model_name)
+    _model, _processor = load(model_name, trust_remote_code=True)
+    _config = load_config(model_name, trust_remote_code=True)
     log.info("Model loaded.")
 
 

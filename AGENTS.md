@@ -1,26 +1,39 @@
 This is an app helping kids choose books from to read from a library bookself. Snap a pic of a library shelf, AI discovers the books (object detection model -> OCR -> library metadata lookups) and provides personalized recommendations given prior user history. This is for a 2-day hackathon, so moving quickly - but needs to be presentable. Not feature rich, but look great. 
 
 Tech Stack:
-    Expo Go + React Native (runs natively on Mac, NOT in Docker)
-    App Backend (BFF): Express + Drizzle ORM
-    Auth: Clerk
-    Database: Postgres (Docker Compose locally)
-    Processing Pipeline: Python workers in a container (models tbd)
-    LLM API Endpoint to be provided
-    Image Storage: Local volume mount (S3-compatible if needed later)
+    - Expo Go + React Native (runs natively on Mac, NOT in Docker)
+    - App Backend (BFF): Express + Drizzle ORM
+    - Auth: Clerk
+    - Database: Postgres
+    - Processing Pipeline: Python workers in a container
+    - Minio/S3 for images storage
+
+Deployment:
+    - Locally in Docker Compose
+    - Expo EAS publishing
+    - Production in railway.com (assume railway CLI is pre-authorized)
+
+External services available via .env:
+    - LiteLLM OpenAI-competible LLM endpoint
+    - Roboflow serverless endpoint for image model
+    - Huggingface inferencing endpoint for OCR model
+    
 
 ## Dev Environment
 
-Local development uses Docker Compose for backend services + Expo CLI on the host Mac for the React Native app.
+Local development uses Docker Compose for backend services + Expo CLI on the host Mac for the React Native app. 
+Expo Web serving works for local testing via web browser; Enable mobile view in dev console;
 
 ```
 docker-compose.yml
-├── postgres         (port 5432)
+├── postgres         
+├── minio
 ├── app-backend      (Express, port 3000, source volume-mounted for hot reload)
 ├── worker           (Python, source volume-mounted for hot reload)
+└── landing           Astro static website, port :4321 for https://shelfbeam.app landing page
 
 Host Mac (not Docker):
-└── expo start       (React Native — iOS Simulator, Android Emulator, Expo Go)
+└── ./expo.sh
 ```
 
 ## Testing Strategy
@@ -32,13 +45,10 @@ Host Mac (not Docker):
 | React Native Web Agentic Testing | /dev-browser skill or playwright-cli | When explicitly called for by the implementation plan |
 | React Native UI Manual Testing | iOS Simulator + Expo Go on device | Manual testing |
 
-Screen Designs: `./designs/screen-map.md`
+## Docs
+
 Data Model: `./designs/data-model.md`
-
-## Design Guidelines
-
 Design Guidelines: `./designs/design-guidelines.md`
-
 
 ## Agentic Rules
 
@@ -58,17 +68,19 @@ LOCAL DEV DATABASE ACCESS. You may have mcp server providing execute_sql tool (o
 
 NO DATABASE CONSTRAINTS
 
-COMMIT OFTEN once validated that the feature is running:
+COMMIT OFTEN once validated that the feature is running but only push when the user asks
 
-WHEN WORKING ON A PLAN assume the implementation agent is just as smart as you, most often IT IS a copy of yourself. Keep plans higher level for structure and review. DO NOT CODE INSIDE THE PLAN.
+WHEN WORKING ON A PLAN assume the implementation agent is just as smart as you. Keep plans higher level for structure and review. DO NOT CODE INSIDE THE PLAN.
 
 ADMIN API AUTH BYPASS: The backend supports full Clerk auth bypass via two headers: `X-Admin-Key: <ADMIN_API_KEY>` and `X-Admin-User-Id: <clerk_user_id>`. Use this for curl testing, worker-to-API calls, and agentic validation instead of minting Clerk tokens. The middleware (`app-backend/src/middleware/admin-auth.ts`) runs before clerkMiddleware and overrides `req.auth` so all downstream `getAuth()`/`requireAuth()` work normally. `TEST_USER_ID` env var holds the primary dev user's Clerk ID — use it as the `X-Admin-User-Id` value. Example: `curl -H "X-Admin-Key: $ADMIN_API_KEY" -H "X-Admin-User-Id: $TEST_USER_ID" http://localhost:3000/api/profiles`.
 
-FRONTEND DEV AUTH BYPASS FOR AGENTIC TESTING (playwright/dev-browser): Set `EXPO_PUBLIC_DEV_AUTH_BYPASS=true` in `.env` (along with `EXPO_PUBLIC_DEV_ADMIN_API_KEY` and `EXPO_PUBLIC_DEV_TEST_USER_ID`). When enabled, ClerkProvider is replaced with a mock auth context, uses `X-Admin-User-Id` admin header based on $EXPO_PUBLIC_DEV_TEST_USER_ID. The app loads directly to profile-picker skipping sign-in.  react-native-web served via `http://localhost:8081`.
+FRONTEND DEV AUTH BYPASS FOR AGENTIC TESTING (playwright cli, or dev-browser skill): Set `EXPO_PUBLIC_DEV_AUTH_BYPASS=true` in `.env` (along with `EXPO_PUBLIC_DEV_ADMIN_API_KEY` and `EXPO_PUBLIC_DEV_TEST_USER_ID`). When enabled, ClerkProvider is replaced with a mock auth context, uses `X-Admin-User-Id` admin header based on $EXPO_PUBLIC_DEV_TEST_USER_ID. The app loads directly to profile-picker skipping sign-in.  react-native-web served via `http://localhost:8081`.
 
 HOT RELOAD: all docker compose apps need to mount source code from the monorepo for hot reload (via docker compose, not via app-level Dockerfile). If we ever deploy to production into e.g. railway, that will not be using this docker compose yaml.
 
 
 ## Maintaining Production Deployment
 
-Production deployment is in Railway, not using docker compose. One project. Assume railway CLI is authenticated. If any environment variables are added or changed, you may need to add it to Railway apps as well (app-backend and/or worker). 
+Production deployment is in Railway, not using docker compose. Assume railway CLI is authenticated. 
+
+If any environment variables are added or changed, you may need to add it to Railway apps as well (`app-backend`, `landing` `worker` apps)
