@@ -329,11 +329,15 @@ export default function ScanDetailScreen() {
     setRerunPending(true);
     const token = await getToken();
     if (!token) { setRerunPending(false); return; }
+    // Save current comment before reprocessing so the worker sees it
+    const trimmed = comment.trim() || null;
+    await updateScan(token, id, { reader_comment: trimmed });
+    storePatchLocal(id, { readerComment: trimmed });
     await storeUpdateScan(token, id, {
       processing_status: "pending",
       processing_task_id: null,
     });
-  }, [id, getToken, storeUpdateScan]);
+  }, [id, comment, getToken, storePatchLocal, storeUpdateScan]);
 
   if (loading || !scan) {
     return (
