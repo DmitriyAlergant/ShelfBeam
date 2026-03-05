@@ -1,4 +1,4 @@
-"""Shared utilities for the BookBeam pipeline."""
+"""Shared utilities for the ShelfBeam pipeline."""
 
 import base64
 import io

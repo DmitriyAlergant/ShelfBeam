@@ -1,4 +1,4 @@
-"""BookBeam multi-stage pipeline."""
+"""ShelfBeam multi-stage pipeline."""
 
 from .orchestrator import run_full_pipeline
 from .stage_detect import detect_books

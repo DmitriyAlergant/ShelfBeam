@@ -1,4 +1,4 @@
-"""BookBeam shelf processing worker.
+"""ShelfBeam shelf processing worker.
 
 Polls the scans table for scans with processing_status='pending',
 runs the 4-stage pipeline (detect -> OCR -> normalize -> recommend),
@@ -357,7 +357,7 @@ async def process_scan(scan_row: dict, task_id: str):
 
 async def main():
     """Main async polling loop with concurrent scan processing."""
-    log.info("BookBeam worker starting...")
+    log.info("ShelfBeam worker starting...")
     log.info("API base: %s", API_BASE_URL)
     log.info("Poll interval: %ds, max concurrent: %d", POLL_INTERVAL_SECONDS, MAX_CONCURRENT_SCANS)
 

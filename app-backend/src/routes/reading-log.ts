@@ -25,7 +25,7 @@ type HistoryContext = {
 };
 
 function buildSystemPrompt(history: HistoryContext[]): string {
-  const base = `You are a reading log parser for a kids' book app called BookBeam. A child (or their parent) will describe books they've been reading in freeform text. Your job is to extract structured book data from their input.
+  const base = `You are a reading log parser for a kids' book app called ShelfBeam. A child (or their parent) will describe books they've been reading in freeform text. Your job is to extract structured book data from their input.
 
 For each book mentioned, extract:
 - title: The book title (best guess, capitalize properly). Do NOT append "(series)" to the title — use the is_series field instead.

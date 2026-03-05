@@ -27,7 +27,7 @@ function buildLandingHTML(qrDataUrl: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BookBeam — Discover Your Next Favorite Book</title>
+  <title>ShelfBeam — Discover Your Next Favorite Book</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -209,12 +209,12 @@ function buildLandingHTML(qrDataUrl: string): string {
       <div class="book-icon">\u{1F4DA}</div>
     </div>
 
-    <h1>BookBeam</h1>
+    <h1>ShelfBeam</h1>
     <p class="tagline">Snap a shelf. Discover your next favorite book.</p>
 
     <div class="card">
       <h2>Open in Expo Go</h2>
-      <img class="qr-img" src="${qrDataUrl}" alt="QR Code to open BookBeam" />
+      <img class="qr-img" src="${qrDataUrl}" alt="QR Code to open ShelfBeam" />
       <div class="instructions">
         <div class="step">
           <span class="step-num">1</span>
