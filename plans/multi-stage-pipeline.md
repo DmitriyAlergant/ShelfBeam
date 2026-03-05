@@ -54,7 +54,7 @@ standalone/
 - Decision drives `stage_ocr.py` implementation and `requirements.txt` deps
 
 ### Step 3: Detection Stage
-[ ] Create `worker/src/pipeline/stage_ocr.py`
+[x] Create `worker/src/pipeline/stage_ocr.py`
 - `ocr_crops(crops: list[dict]) -> list[dict]`
 - EasyOCR path: `easyocr.Reader(['en'], gpu=False)`, call `readtext()` on each crop
 - DocTR path (if EasyOCR too slow): POST to `https://infer.roboflow.com/doctr/ocr?api_key=<key>`
@@ -62,9 +62,9 @@ standalone/
 - Process each spine in parallel (up to X concurrency), collect results
 - 1 retry attempt on failure
 
-[ ] **Test**: Run `--stage ocr --input-json stage1.json`
+[x] **Test**: Run `--stage ocr --input-json stage1.json`
 
-[ ] Iterate on known samples see what can be improved given the models we have
+[x] Iterate on known samples see what can be improved given the models we have
 
 ### Step 4: Normalization Stage
 
