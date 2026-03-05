@@ -27,11 +27,11 @@ def _infer_roboflow(image_path_or_b64: str, is_base64: bool = False) -> list[dic
     }
 
     if is_base64:
-        resp = requests.post(url, params=params, data=image_path_or_b64, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        resp = requests.post(url, params=params, data=image_path_or_b64, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=60)
     else:
         with open(image_path_or_b64, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode("utf-8")
-        resp = requests.post(url, params=params, data=img_b64, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        resp = requests.post(url, params=params, data=img_b64, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=60)
 
     resp.raise_for_status()
     return resp.json().get("predictions", [])
