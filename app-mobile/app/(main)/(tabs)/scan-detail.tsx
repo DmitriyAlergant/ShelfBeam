@@ -18,14 +18,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import {
-  getScan,
-  updateScan,
   createBook,
   addToHistory,
   getImageUrl,
-  type ScanData,
   type DetectedBook,
 } from "../../../lib/api";
+import { useScanStore } from "../../../lib/stores/useScanStore";
+import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
 
 const PROCESSING_STEPS = [
   { key: "pending", label: "In queue", emoji: "⏳" },
@@ -49,8 +48,11 @@ export default function ScanDetailScreen() {
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
 
-  const [scan, setScan] = useState<ScanData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const scan = useScanStore((s) => s.scans.find((sc) => sc.id === id)) ?? null;
+  const storeFetchScan = useScanStore((s) => s.fetchScan);
+  const storeUpdateScan = useScanStore((s) => s.updateScan);
+  const storePatchLocal = useScanStore((s) => s.patchScanLocal);
+  const [loading, setLoading] = useState(!scan);
   const [comment, setComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
   const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
@@ -74,18 +76,24 @@ export default function ScanDetailScreen() {
     if (!id) return;
     const token = await getToken();
     if (!token) return;
-    const data = await getScan(token, id);
-    setScan(data);
-    if (data.readerComment != null && !commentInitialized.current && !commentTouched.current) {
-      setComment(data.readerComment);
+    await storeFetchScan(token, id);
+  }, [id, getToken, storeFetchScan]);
+
+  // Sync comment from scan data when it loads
+  useEffect(() => {
+    if (scan?.readerComment != null && !commentInitialized.current && !commentTouched.current) {
+      setComment(scan.readerComment);
       commentInitialized.current = true;
     }
-    return data;
-  }, [id, getToken]);
+  }, [scan?.readerComment]);
 
   useEffect(() => {
-    fetchScan().finally(() => setLoading(false));
-  }, [fetchScan]);
+    if (!scan) {
+      fetchScan().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll while processing
   useEffect(() => {
@@ -99,27 +107,22 @@ export default function ScanDetailScreen() {
     pollRef.current = setInterval(async () => {
       const token = await getToken();
       if (!token || !id) return;
-      const updated = await getScan(token, id);
-      setScan(updated);
-      if (TERMINAL_STATUSES.includes(updated.processingStatus ?? "")) {
-        if (pollRef.current) clearInterval(pollRef.current);
-      }
+      await storeFetchScan(token, id);
     }, 2000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [scan?.processingStatus, id, getToken]);
+  }, [scan?.processingStatus, id, getToken, storeFetchScan]);
 
   const saveComment = useCallback(async () => {
     if (!id) return;
     setSavingComment(true);
     const token = await getToken();
     if (!token) { setSavingComment(false); return; }
-    const updated = await updateScan(token, id, { reader_comment: comment.trim() || null });
-    setScan(updated);
+    await storeUpdateScan(token, id, { reader_comment: comment.trim() || null });
     setSavingComment(false);
-  }, [id, comment, getToken]);
+  }, [id, comment, getToken, storeUpdateScan]);
 
   const showToast = useCallback(
     (message: string) => {
@@ -163,12 +166,14 @@ export default function ScanDetailScreen() {
           cover_url: detectedBook.cover_url,
         });
 
-        await addToHistory(token, activeProfile.id, {
+        const historyEntry = await addToHistory(token, activeProfile.id, {
           book_id: book.id,
           source: "scan",
           source_id: id,
           status: "reading",
         });
+
+        useHistoryStore.getState().addEntry({ entry: historyEntry, book });
 
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -190,24 +195,23 @@ export default function ScanDetailScreen() {
   const rerunRecommendation = useCallback(async () => {
     if (!id) return;
     // Immediately clear results locally so UI shows processing state
-    setScan((prev) => prev ? {
-      ...prev,
+    storePatchLocal(id, {
       processingStatus: "pending",
       recommendation: null,
       recommendationSummary: null,
       detectedBooks: null,
-    } : prev);
+    });
     const token = await getToken();
     if (!token) return;
     // Reset to pending with null task_id so the worker picks it up fresh
-    await updateScan(token, id, {
+    await storeUpdateScan(token, id, {
       processing_status: "pending",
       processing_task_id: null,
       detected_books: null,
       recommendation: null,
       recommendation_summary: null,
     });
-  }, [id, getToken]);
+  }, [id, getToken, storePatchLocal, storeUpdateScan]);
 
   if (loading || !scan) {
     return (

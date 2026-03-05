@@ -16,7 +16,8 @@ import { useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
-import { getScans, deleteScan, getImageUrl, type ScanData } from "../../../lib/api";
+import { getImageUrl, type ScanData } from "../../../lib/api";
+import { useScanStore } from "../../../lib/stores/useScanStore";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "In queue...",
@@ -56,8 +57,10 @@ export default function ScanHome() {
   const router = useRouter();
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
-  const [scans, setScans] = useState<ScanData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const scans = useScanStore((s) => s.scans);
+  const loading = useScanStore((s) => s.loading);
+  const storeFetchScans = useScanStore((s) => s.fetchScans);
+  const storeRemoveScan = useScanStore((s) => s.removeScan);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingScanId, setDeletingScanId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -67,14 +70,12 @@ export default function ScanHome() {
     if (!activeProfile) return;
     const token = await getToken();
     if (!token) return;
-    const data = await getScans(token, activeProfile.id);
-    setScans(data);
-  }, [activeProfile, getToken]);
+    await storeFetchScans(token, activeProfile.id);
+  }, [activeProfile, getToken, storeFetchScans]);
 
   useEffect(() => {
-    setScans([]);
-    setLoading(true);
-    fetchScans().finally(() => setLoading(false));
+    useScanStore.getState().reset();
+    fetchScans();
   }, [fetchScans]);
 
   // Auto-poll while any scan is still processing
@@ -110,11 +111,10 @@ export default function ScanHome() {
     setDeleteLoading(true);
     const token = await getToken();
     if (!token) return;
-    await deleteScan(token, deletingScanId);
-    setScans((prev) => prev.filter((s) => s.id !== deletingScanId));
+    await storeRemoveScan(token, deletingScanId);
     setDeleteLoading(false);
     setDeletingScanId(null);
-  }, [deletingScanId, getToken]);
+  }, [deletingScanId, getToken, storeRemoveScan]);
 
   const renderScanCard = useCallback(
     ({ item }: { item: ScanData }) => {
@@ -173,7 +173,7 @@ export default function ScanHome() {
     <View style={styles.container}>
       <Text style={styles.header}>Find Your Next Read</Text>
       <Text style={styles.headerSubtitle}>
-        Snap a photo of any bookshelf and we'll pick the best books for you
+        Snap a photo of any bookshelf and we'll pick the best books for you. For best results keep it to 30-40 books at a time, not the entire bookcase.
       </Text>
 
       <TouchableOpacity
