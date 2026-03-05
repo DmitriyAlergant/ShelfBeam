@@ -359,14 +359,18 @@ export default function ScanDetailScreen() {
             return (
               <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setSelectedPick(pick)}>
                 <View style={styles.bookCard}>
-                  {pick.crop_url && (
-                    <Image
-                      source={{ uri: getImageUrl(pick.crop_url) }}
-                      style={styles.bookCropThumb}
-                      resizeMode="cover"
-                    />
-                  )}
-                  {!pick.crop_url && (
+                  {pick.crop_url ? (
+                    <View style={styles.cropContainer}>
+                      <Image
+                        source={{ uri: getImageUrl(pick.crop_url) }}
+                        style={styles.bookCropThumb}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.rankBadgeMini}>
+                        <Text style={styles.rankTextMini}>{rank}</Text>
+                      </View>
+                    </View>
+                  ) : (
                     <View style={styles.rankBadge}>
                       <Text style={styles.rankText}>{rank}</Text>
                     </View>
@@ -782,11 +786,31 @@ const styles = StyleSheet.create({
   },
 
   // Book crop thumbnail in card
+  cropContainer: {
+    position: "relative",
+  },
   bookCropThumb: {
     width: 40,
     height: 56,
     borderRadius: radius.sm,
     backgroundColor: colors.bgWarm,
+  },
+  rankBadgeMini: {
+    position: "absolute",
+    top: -6,
+    left: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.beamYellow,
+    justifyContent: "center",
+    alignItems: "center",
+    ...shadows.button,
+  },
+  rankTextMini: {
+    fontSize: 11,
+    fontFamily: fonts.heading,
+    color: colors.inkDark,
   },
 
   // Modal
@@ -832,7 +856,7 @@ const styles = StyleSheet.create({
   modalRankText: {
     fontSize: 16,
     fontFamily: fonts.heading,
-    color: colors.shelfBrown,
+    color: colors.inkDark,
   },
   modalCropImage: {
     width: 120,
