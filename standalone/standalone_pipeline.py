@@ -10,17 +10,14 @@ Usage:
 """
 
 import argparse
-import base64
 import json
 import logging
-import mimetypes
 import os
 import sys
 from datetime import date
 
 import psycopg2
 from dotenv import load_dotenv
-from openai import OpenAI
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -31,54 +28,8 @@ logging.basicConfig(
 log = logging.getLogger("standalone")
 
 
-def _get_openai_client() -> OpenAI:
-    return OpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        base_url=os.environ["OPENAI_BASE_URL"],
-    )
-
-
 def _get_database_url() -> str:
-    return os.environ.get("STANDALONE_DATABASE_URL") or os.environ["DATABASE_URL"].replace("@postgres:", "@localhost:")
-
-VISION_SYSTEM_PROMPT = """\
-You are a children's librarian AI assistant for the BookBeam app.
-
-You will be shown a photo of a bookshelf. Your job:
-1. Identify ALL visible books — look at spines, covers, any readable text.
-2. For each book, extract: title, author (if visible), and your confidence (0.0-1.0).
-3. Then, given the reader's profile info, recommend the top 3 books from the shelf \
-for this specific child, with a short kid-friendly explanation for each pick.
-4. Write a brief overall recommendation summary (2-3 sentences, kid-friendly tone).
-
-Respond ONLY with valid JSON matching this schema:
-{
-  "detected_books": [
-    {
-      "index": 0,
-      "title": "Book Title",
-      "author": "Author Name or null",
-      "confidence": 0.85,
-      "raw_ocr_text": "text you read from the spine"
-    }
-  ],
-  "recommendations": [
-    {
-      "title": "Book Title",
-      "author": "Author Name",
-      "reason": "Short kid-friendly reason why this book is great for you!"
-    }
-  ],
-  "recommendation_summary": "Hey there! I found some awesome books on this shelf..."
-}
-
-Rules:
-- Include ALL books you can identify, even if partially visible.
-- For author, use null if you truly cannot determine it.
-- Confidence should reflect how sure you are about the identification.
-- Recommendations must reference books from the detected_books list.
-- Keep recommendation language fun and age-appropriate.
-"""
+    return os.environ["DATABASE_URL"]
 
 
 def get_reader_context_from_db(profile_id: str) -> str:
@@ -135,87 +86,6 @@ def get_reader_context_from_db(profile_id: str) -> str:
         conn.close()
 
 
-def load_image(image_path: str) -> tuple[str, str]:
-    """Read a local image file and return (base64_data, media_type)."""
-    mime_type, _ = mimetypes.guess_type(image_path)
-    if not mime_type or not mime_type.startswith("image/"):
-        mime_type = "image/jpeg"
-
-    with open(image_path, "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    return data, mime_type
-
-
-def _parse_llm_json(raw_text: str) -> dict:
-    """Strip markdown fences and parse JSON from LLM response."""
-    text = raw_text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = [l for l in lines[1:] if not l.strip().startswith("```")]
-        text = "\n".join(lines)
-    return json.loads(text)
-
-
-def call_vision_api(image_b64: str, media_type: str, reader_context: str, reader_comment: str | None) -> dict:
-    """Send the shelf image to the LLM vision API. Retries once on malformed JSON."""
-    user_message = f"Reader profile:\n{reader_context}"
-    if reader_comment:
-        user_message += f'\n\nThe reader says: "{reader_comment}"'
-    user_message += "\n\nPlease analyze the bookshelf photo and provide your response."
-
-    messages = [
-        {"role": "system", "content": VISION_SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_message},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{media_type};base64,{image_b64}",
-                    },
-                },
-            ],
-        },
-    ]
-
-    for attempt in range(2):
-        log.info("Calling vision API (attempt %d)...", attempt + 1)
-        response = _get_openai_client().chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.3,
-        )
-
-        raw_text = response.choices[0].message.content
-        try:
-            return _parse_llm_json(raw_text)
-        except json.JSONDecodeError:
-            if attempt == 0:
-                log.warning("Malformed JSON from LLM, retrying...")
-                messages.append({"role": "assistant", "content": raw_text})
-                messages.append({"role": "user", "content": "Your response was not valid JSON. Please respond with ONLY valid JSON matching the schema."})
-            else:
-                raise ValueError(f"LLM returned invalid JSON after retry: {raw_text[:500]}")
-
-
-def run_pipeline(image_path: str, reader_context: str, reader_comment: str | None) -> dict:
-    """Full pipeline: load image -> call vision API -> return results."""
-    log.info("Loading image: %s", image_path)
-    image_b64, media_type = load_image(image_path)
-    log.info("Image loaded (%s, %d bytes base64)", media_type, len(image_b64))
-
-    log.info("Reader context:\n%s", reader_context)
-
-    result = call_vision_api(image_b64, media_type, reader_context, reader_comment)
-    log.info("Detected %d books, %d recommendations",
-             len(result.get("detected_books", [])),
-             len(result.get("recommendations", [])))
-
-    return result
-
 
 def _output_result(result: dict, output_path: str | None):
     """Write result JSON to file or stdout."""
@@ -241,7 +111,7 @@ def main():
 
     args = parser.parse_args()
 
-    from pipeline import detect_books, normalize_books, ocr_crops, recommend_books
+    from pipeline import detect_books, normalize_books, ocr_crops, recommend_books, run_full_pipeline
 
     if args.stage == "detect":
         if not args.image:
@@ -285,7 +155,7 @@ def main():
         _output_result(result, args.output)
 
     else:
-        # Full legacy pipeline
+        # Full 4-stage pipeline via orchestrator
         if not args.image:
             parser.error("image path is required for full pipeline")
         if not args.reader_profile_id:
@@ -295,7 +165,7 @@ def main():
             sys.exit(1)
 
         reader_context = get_reader_context_from_db(args.reader_profile_id)
-        result = run_pipeline(args.image, reader_context, args.reader_comment)
+        result = run_full_pipeline(args.image, reader_context, args.reader_comment)
         _output_result(result, args.output)
 
 

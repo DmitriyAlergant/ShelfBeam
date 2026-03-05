@@ -14,11 +14,16 @@ export function useUserSync() {
 
     syncing.current = true;
     (async () => {
-      const token = await getToken();
-      if (!token) return;
-      const user = await syncUser(token);
-      setAppUserId(user.id);
-      syncing.current = false;
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const user = await syncUser(token);
+        setAppUserId(user.id);
+      } catch (err) {
+        console.error("User sync failed:", err);
+      } finally {
+        syncing.current = false;
+      }
     })();
   }, [isSignedIn, appUserId]);
 }

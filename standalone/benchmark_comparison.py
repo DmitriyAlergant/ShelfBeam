@@ -51,7 +51,7 @@ def run_paddleocr_vl(crops, model, processor, config):
 def run_easyocr(crops):
     from pipeline.stage_ocr import ocr_crops
     t0 = time.time()
-    results = ocr_crops(crops, max_workers=1)
+    results = ocr_crops(crops)
     elapsed = time.time() - t0
     return results, elapsed
 

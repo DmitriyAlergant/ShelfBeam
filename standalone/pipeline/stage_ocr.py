@@ -7,10 +7,8 @@ Supports two backends controlled by OCR_BACKEND env var:
 
 import base64
 import io
-import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from PIL import Image, ImageEnhance, ImageOps
@@ -23,7 +21,7 @@ CONFIDENCE_THRESHOLD = 0.15
 
 
 def _get_ocr_backend() -> str:
-    return os.environ.get("OCR_BACKEND", "mlx")
+    return os.environ["OCR_BACKEND"]
 
 
 # --- MLX OCR Server backend ---
@@ -59,7 +57,7 @@ def _get_reader():
     global _reader
     if _reader is None:
         import easyocr
-        langs = os.environ.get("OCR_LANGUAGES", "en,es").split(",")
+        langs = os.environ["OCR_LANGUAGES"].split(",")
         log.info("Initializing EasyOCR reader (CPU, langs=%s)...", langs)
         _reader = easyocr.Reader(langs, gpu=False)
         log.info("EasyOCR reader ready")
@@ -132,46 +130,27 @@ def _ocr_single_crop_easyocr(crop_b64: str, index: int) -> dict:
 
 # --- Public API ---
 
-def ocr_crops(crops: list[dict], max_workers: int = 4) -> list[dict]:
+def ocr_crops(crops: list[dict]) -> list[dict]:
     """Run OCR on all cropped spine images.
 
     Each crop dict must have 'index' and 'crop_b64' keys.
     Returns list of dicts with 'index', 'ocr_text', and 'ocr_regions'.
     """
     backend = _get_ocr_backend()
-    log.info("Running OCR on %d crops (backend=%s, max_workers=%d)",
-             len(crops), backend, max_workers)
+    log.info("Running OCR on %d crops (backend=%s)", len(crops), backend)
 
     if backend == "mlx":
         ocr_fn = _ocr_single_crop_mlx
     elif backend == "easyocr":
-        # Ensure reader is initialized before threading
         _get_reader()
         ocr_fn = _ocr_single_crop_easyocr
     else:
         raise ValueError(f"Unknown OCR_BACKEND: {backend}")
 
     results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {}
-        for crop in crops:
-            future = executor.submit(ocr_fn, crop["crop_b64"], crop["index"])
-            futures[future] = crop["index"]
-
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                result = future.result()
-                results.append(result)
-            except Exception:
-                log.warning("  [%d] OCR failed, retrying once...", idx)
-                retry_crop = next(c for c in crops if c["index"] == idx)
-                try:
-                    result = ocr_fn(retry_crop["crop_b64"], idx)
-                    results.append(result)
-                except Exception:
-                    log.error("  [%d] OCR failed on retry", idx)
-                    raise
+    for crop in crops:
+        result = ocr_fn(crop["crop_b64"], crop["index"])
+        results.append(result)
 
     results.sort(key=lambda r: r["index"])
     log.info("OCR complete: %d/%d crops processed", len(results), len(crops))

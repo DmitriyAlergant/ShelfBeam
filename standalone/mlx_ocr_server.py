@@ -88,7 +88,7 @@ class OCRHandler(BaseHTTPRequestHandler):
 
 def main():
     _load_model()
-    port = int(os.environ.get("MLX_OCR_PORT", "8090"))
+    port = int(os.environ["MLX_OCR_PORT"])
     server = HTTPServer(("0.0.0.0", port), OCRHandler)
     log.info("MLX OCR server listening on port %d", port)
     server.serve_forever()
