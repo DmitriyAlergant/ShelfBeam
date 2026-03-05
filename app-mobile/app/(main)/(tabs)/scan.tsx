@@ -21,10 +21,10 @@ import { useScanStore } from "../../../lib/stores/useScanStore";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "In queue...",
-  detecting: "Finding books...",
-  reading: "Reading spines...",
+  detecting: "Noticing Books...",
+  reading: "Reading Spines...",
   looking_up: "Learning...",
-  recommending: "Picking favorites...",
+  recommending: "Picking Favorites...",
   done: "Done",
   error: "Error",
   failed: "Error",
