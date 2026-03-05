@@ -102,13 +102,13 @@ standalone/
 
 
 ### Step 6: `worker/src/pipeline/orchestrator.py`
-[ ] Create a script
+[x] Create a script
 - `run_full_pipeline(image_source, reader_context, reader_comment, is_base64=False, status_callback=None) -> dict`
 - Calls stages 1→4 in sequence
 - `status_callback(stage_name)` — optional hook for progress reporting
 - Assembles final result matching existing schema: `{detected_books, recommendations, recommendation_summary}`
 
-[ ] Test end to end
+[x] Test end to end
 
 ### Step 7: Refactor `standalone_pipeline.py`
 - Now a CLI wrapper for the created orchestrator and stages
