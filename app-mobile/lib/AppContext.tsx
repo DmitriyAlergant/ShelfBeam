@@ -8,6 +8,8 @@ type AppContextValue = {
   setActiveProfile: (profile: ProfileData | null) => void;
   pendingSave: (() => Promise<void>) | null;
   setPendingSave: (fn: (() => Promise<void>) | null) => void;
+  hasSeenWelcome: boolean;
+  setHasSeenWelcome: (v: boolean) => void;
 };
 
 const AppContext = createContext<AppContextValue>({
@@ -17,6 +19,8 @@ const AppContext = createContext<AppContextValue>({
   setActiveProfile: () => {},
   pendingSave: null,
   setPendingSave: () => {},
+  hasSeenWelcome: false,
+  setHasSeenWelcome: () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -25,9 +29,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pendingSaveBox, setPendingSaveBox] = useState<{ fn: (() => Promise<void>) } | null>(null);
   const pendingSave = pendingSaveBox?.fn ?? null;
   const setPendingSave = useCallback((fn: (() => Promise<void>) | null) => setPendingSaveBox(fn ? { fn } : null), []);
+  const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   return (
     <AppContext.Provider
-      value={{ appUserId, setAppUserId, activeProfile, setActiveProfile, pendingSave, setPendingSave }}
+      value={{ appUserId, setAppUserId, activeProfile, setActiveProfile, pendingSave, setPendingSave, hasSeenWelcome, setHasSeenWelcome }}
     >
       {children}
     </AppContext.Provider>
