@@ -397,7 +397,7 @@ def main():
                             api_patch(f"/api/scans/{scan_id}", {
                                 "processing_status": "failed",
                                 "processing_task_id": task_id,
-                                "recommendation_summary": f"Processing error: {exc}",
+                                "recommendation_summary": "Something went wrong processing this shelf. Please try again.",
                             })
                         except TaskOrphanedError:
                             log.info("Scan %s was reprocessed, not marking as failed", scan_id)

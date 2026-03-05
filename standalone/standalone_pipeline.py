@@ -59,6 +59,8 @@ def get_reader_context_from_db(profile_id: str) -> str:
                 parts.append(f"Age: ~{date.today().year - birth_year}")
             if interests:
                 parts.append(f"Interests: {', '.join(interests)}")
+            if gender:
+                parts.append(f"Gender: {gender}")
             if languages:
                 parts.append(f"Languages: {', '.join(languages)}")
             if notes:
