@@ -173,7 +173,7 @@ export default function ScanHome() {
     <View style={styles.container}>
       <Text style={styles.header}>Find Your Next Read</Text>
       <Text style={styles.headerSubtitle}>
-        Snap a photo of any bookshelf and we'll pick the best books for you. For best results keep it to 30-40 books at a time, not the entire bookcase.
+        Snap a photo of any bookshelf and we'll pick the best books for you. For best results keep it to 1-2 shelves at a time, not the entire bookcase.
       </Text>
 
       <TouchableOpacity
