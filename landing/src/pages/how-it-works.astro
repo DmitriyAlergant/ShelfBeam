@@ -116,63 +116,40 @@ import Base from '../layouts/Base.astro';
       <div class="pipeline-grid">
         <div class="pipe-card">
           <div class="pipe-num">01</div>
-          <h3>Object Detection</h3>
+          <h3>Books Detection</h3>
           <p>The shelf image is sent to a Roboflow-hosted model trained to detect individual book spines. Returns bounding box coordinates for each detected spine.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">Roboflow API</span>
-            <span class="tech-tag">YOLOv8</span>
-          </div>
+          <a href="https://universe.roboflow.com/library-books/fyp-obb-mnsh3/model/9" class="model-link" target="_blank" rel="noopener">View model on Roboflow &rarr;</a>
         </div>
 
         <div class="pipe-card">
           <div class="pipe-num">02</div>
           <h3>Spine Cropping</h3>
-          <p>Each detected bounding box is cropped from the original image. Crops are uploaded to S3 for reference and downstream processing.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">Pillow</span>
-            <span class="tech-tag">S3 Upload</span>
-          </div>
+          <p>Each detected bounding box is cropped from the original image and rotated left to appear horizontally, assuming the spine follows top-to-bottom orientation (standard in US/English typography).</p>
         </div>
 
         <div class="pipe-card">
           <div class="pipe-num">03</div>
           <h3>OCR</h3>
-          <p>Each spine crop is processed through OCR to extract text (title, author). Uses LLM-based vision OCR for high accuracy on rotated, curved book spines.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">LLM Vision</span>
-            <span class="tech-tag">Configurable Backend</span>
-          </div>
+          <p>Each spine crop is processed through PaddleOCR-VL-1.5, a vision-language OCR model deployed on a custom HuggingFace inference endpoint with an NVIDIA T4 GPU. Extracts title and author text from book spines.</p>
+          <a href="https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.5" class="model-link" target="_blank" rel="noopener">View model on HuggingFace &rarr;</a>
         </div>
 
         <div class="pipe-card">
           <div class="pipe-num">04</div>
           <h3>Title Normalization</h3>
-          <p>Raw OCR text is cleaned and normalized via LLM to extract structured title + author pairs. Handles partial reads, abbreviations, and multi-line spines.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">LLM</span>
-            <span class="tech-tag">Structured Output</span>
-          </div>
+          <p>Raw OCR text is cleaned and normalized via Gemini 3 Flash Preview in batches of 20 items to extract structured title + author pairs. Handles erroneous reads, non-title content, duplicates, and series. Attempts to split titles when object detection failed to separate two books.</p>
         </div>
 
         <div class="pipe-card">
           <div class="pipe-num">05</div>
-          <h3>Metadata Lookup</h3>
-          <p>Normalized titles are looked up against library databases to retrieve cover images, descriptions, genres, and ISBNs.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">Open Library API</span>
-            <span class="tech-tag">Google Books API</span>
-          </div>
+          <h3>Metadata Lookup <span class="wip-badge">WIP</span></h3>
+          <p>Normalized titles are looked up against Hardcover API and Google Books free APIs to retrieve cover images, descriptions, genres, and ISBNs.</p>
         </div>
 
         <div class="pipe-card pipe-card-highlight">
           <div class="pipe-num">06</div>
           <h3>AI Recommendations</h3>
-          <p>An LLM reviews all detected books against the reader's profile (age, interests, reading history, past reactions) to generate personalized recommendations with explanations.</p>
-          <div class="tech-tags">
-            <span class="tech-tag">LLM</span>
-            <span class="tech-tag">Personalization</span>
-            <span class="tech-tag">Context-aware</span>
-          </div>
+          <p>GPT-5.2 reviews all detected books against the reader's profile (age, interests, reading history, past reactions) to generate personalized recommendations with explanations.</p>
         </div>
       </div>
     </div>
@@ -401,23 +378,32 @@ import Base from '../layouts/Base.astro';
     margin-bottom: 1rem;
   }
 
-  /* ── Tech Tags ───────────────────────────────────────────────── */
-  .hiw .tech-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
+  /* ── WIP Badge ───────────────────────────────────────────────── */
+  .hiw .wip-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255, 210, 52, 0.2);
+    color: #8B6914;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.5rem;
   }
 
-  .hiw .tech-tag {
-    display: inline-block;
-    font-size: 0.6875rem;
+  /* ── Model Link ──────────────────────────────────────────────── */
+  .hiw .model-link {
+    font-size: 0.8125rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: rgba(139, 105, 20, 0.08);
     color: #8B6914;
-    padding: 0.1875rem 0.625rem;
-    border-radius: 4px;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .hiw .model-link:hover {
+    color: #2D2319;
+    text-decoration: underline;
   }
 
   /* ── Roadmap Grid ────────────────────────────────────────────── */
