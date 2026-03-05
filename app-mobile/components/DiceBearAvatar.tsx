@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { createAvatar } from "@dicebear/core";
-import { avataaars } from "@dicebear/collection";
+import { funEmoji } from "@dicebear/collection";
 
 interface DiceBearAvatarProps {
   seed: string;
@@ -13,35 +13,6 @@ interface DiceBearAvatarProps {
   gender?: string;
 }
 
-const TOP_FEMININE = [
-  "bigHair", "bob", "bun", "curly", "curvy",
-  "dreads", "dreads01", "dreads02", "frida", "frizzle",
-  "fro", "froBand",
-  "longButNotTooLong", "miaWallace",
-  "straight01", "straight02", "straightAndStrand",
-  "winterHat1", "winterHat02", "winterHat03", "winterHat04",
-] as const;
-
-const TOP_MASCULINE = [
-  "dreads", "dreads01", "dreads02", "frizzle",
-  "fro", "froBand", "hat",
-  "shaggy", "shaggyMullet",
-  "shavedSides", "shortCurly", "shortFlat", "shortRound", "shortWaved",
-  "sides", "theCaesar", "theCaesarAndSidePart",
-  "winterHat1", "winterHat02", "winterHat03", "winterHat04",
-] as const;
-
-const TOP_ALL = [
-  "bigHair", "bob", "bun", "curly", "curvy",
-  "dreads", "dreads01", "dreads02", "frida", "frizzle",
-  "fro", "froBand", "hat",
-  "longButNotTooLong", "miaWallace", "shaggy", "shaggyMullet",
-  "shavedSides", "shortCurly", "shortFlat", "shortRound", "shortWaved",
-  "sides", "straight01", "straight02", "straightAndStrand",
-  "theCaesar", "theCaesarAndSidePart",
-  "winterHat1", "winterHat02", "winterHat03", "winterHat04",
-] as const;
-
 export function DiceBearAvatar({
   seed,
   size = 64,
@@ -49,16 +20,16 @@ export function DiceBearAvatar({
   gender,
 }: DiceBearAvatarProps) {
   const svgString = useMemo(() => {
-    const top = gender === "F" ? [...TOP_FEMININE] : gender === "M" ? [...TOP_MASCULINE] : [...TOP_ALL];
-    const avatar = createAvatar(avataaars, {
+    const avatar = createAvatar(funEmoji, {
       seed,
-      skinColor: ["edb98a", "f8d25c", "ffdbb4", "fd9841", "d08b5b"],
-      top,
-      mouth: [
-        "concerned", "default", "disbelief", "eating", "grimace",
-        "sad", "screamOpen", "serious", "smile", "tongue", "twinkle",
+      eyes: [
+        "cute", "wink", "wink2", "plain", "glasses",
+        "closed", "shades", "closed2", "sleepClose",
       ],
-      ...(gender === "F" && { facialHairProbability: 0 }),
+      mouth: [
+        "plain", "lilSmile", "shy", "cute", "wideSmile",
+        "shout", "smileTeeth", "smileLol", "tongueOut", "kissHeart",
+      ],
     });
     return avatar.toString();
   }, [seed, gender]);

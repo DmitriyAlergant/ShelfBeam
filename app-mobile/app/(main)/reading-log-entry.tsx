@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
+import { useAppContext } from "../../lib/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { parseReadingLog } from "../../lib/api";
@@ -19,25 +21,28 @@ export default function ReadingLogEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getToken } = useAppAuth();
+  const { activeProfile } = useAppContext();
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !activeProfile) return;
     setSubmitting(true);
-    const token = await getToken();
-    if (!token) {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const parsed = await parseReadingLog(token, text.trim(), activeProfile.id);
+
+      router.push({
+        pathname: "/(main)/reading-log-confirmation",
+        params: { parsed: JSON.stringify(parsed), rawText: text.trim() },
+      });
+    } catch {
+      Alert.alert("Error", "Failed to parse reading log. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const parsed = await parseReadingLog(token, text.trim());
-    setSubmitting(false);
-
-    router.push({
-      pathname: "/(main)/reading-log-confirmation",
-      params: { parsed: JSON.stringify(parsed), rawText: text.trim() },
-    });
   };
 
   return (
@@ -56,9 +61,9 @@ export default function ReadingLogEntryScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.header}>Tell us what you've read</Text>
+        <Text style={styles.header}>Tell us what books you&apos;ve read</Text>
         <Text style={styles.subtitle}>
-          Type or dictate what you've been reading. We'll figure out the rest!
+          Knowing what you've already read will help us recommend you new books. Type or dictate a bit about the books you read lately and liked, or didn't like. Share your emotions.
         </Text>
 
         <TextInput
@@ -91,7 +96,7 @@ export default function ReadingLogEntryScreen() {
           {submitting ? (
             <ActivityIndicator size="small" color={colors.inkDark} />
           ) : (
-            <Text style={styles.submitText}>See what we found</Text>
+            <Text style={styles.submitText}>Process</Text>
           )}
         </TouchableOpacity>
       </View>

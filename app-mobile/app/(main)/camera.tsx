@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
 import { uploadScanImage, createScan } from "../../lib/api";
+import { useScanStore } from "../../lib/stores/useScanStore";
 
 type CameraViewRef = {
   takePictureAsync: (opts?: { quality?: number }) => Promise<{ uri: string }>;
@@ -58,8 +59,9 @@ export default function CameraScreen() {
       reader_profile_id: activeProfile.id,
       image_url,
     });
+    useScanStore.getState().addScan(scan);
     setUploading(false);
-    router.replace(`/(main)/scan-detail?id=${scan.id}`);
+    router.replace(`/(main)/(tabs)/scan-detail?id=${scan.id}`);
   }, [capturedUri, activeProfile, getToken, router]);
 
   // Permission not yet determined

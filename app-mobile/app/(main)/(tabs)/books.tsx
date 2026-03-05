@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,38 +9,54 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
-import { getHistory, type HistoryWithBook } from "../../../lib/api";
+import { type HistoryWithBook } from "../../../lib/api";
+import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
+import { STATUS_LABELS } from "../../../lib/reading-status";
+import SwipeToDelete from "../../../components/SwipeToDelete";
+import ConfirmModal from "../../../components/ConfirmModal";
 
 const SOURCE_LABELS: Record<string, string> = {
-  scan: "From scan",
-  reading_log: "Logged by you",
+  scan: "Picked from scanned shelf",
 };
 
 export default function MyBooks() {
   const router = useRouter();
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
-  const [reading, setReading] = useState<HistoryWithBook[]>([]);
-  const [finished, setFinished] = useState<HistoryWithBook[]>([]);
-  const [loading, setLoading] = useState(true);
+  const entries = useHistoryStore((s) => s.entries);
+  const loading = useHistoryStore((s) => s.loading);
+  const storeFetchHistory = useHistoryStore((s) => s.fetchHistory);
+  const storeRemoveEntry = useHistoryStore((s) => s.removeEntry);
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const fetchHistory = useCallback(async () => {
     if (!activeProfile) return;
     const token = await getToken();
     if (!token) return;
-    const data = await getHistory(token, activeProfile.id);
-    setReading(data.reading);
-    setFinished(data.finished);
-  }, [activeProfile, getToken]);
+    await storeFetchHistory(token, activeProfile.id);
+  }, [activeProfile, getToken, storeFetchHistory]);
 
   useEffect(() => {
-    fetchHistory().finally(() => setLoading(false));
+    useHistoryStore.getState().reset();
+    fetchHistory();
   }, [fetchHistory]);
+
+  // Re-fetch when screen regains focus (e.g. returning from book-detail)
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        fetchHistory();
+      }
+    }, [fetchHistory, loading])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -47,46 +64,90 @@ export default function MyBooks() {
     setRefreshing(false);
   }, [fetchHistory]);
 
+  const handleDeleteCancel = useCallback(() => {
+    if (deletingEntryId) {
+      swipeableRefs.current.get(deletingEntryId)?.close();
+    }
+    setDeletingEntryId(null);
+  }, [deletingEntryId]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingEntryId || !activeProfile) return;
+    setDeleteLoading(true);
+    const token = await getToken();
+    if (!token) return;
+    await storeRemoveEntry(token, activeProfile.id, deletingEntryId);
+    setDeleteLoading(false);
+    setDeletingEntryId(null);
+  }, [deletingEntryId, activeProfile, getToken, storeRemoveEntry]);
+
   const renderBookCard = useCallback(
     ({ item }: { item: HistoryWithBook }) => {
       const { entry, book } = item;
       if (!book) return null;
       return (
-        <TouchableOpacity
-          style={styles.bookCard}
-          activeOpacity={0.8}
-          onPress={() =>
-            router.push(
-              `/(main)/book-detail?entryId=${entry.id}&bookId=${book.id}`
-            )
-          }
+        <SwipeToDelete
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(entry.id, ref);
+            else swipeableRefs.current.delete(entry.id);
+          }}
+          onDelete={() => setDeletingEntryId(entry.id)}
         >
-          <View style={styles.bookCoverPlaceholder}>
-            <Text style={styles.bookCoverEmoji}>📕</Text>
-          </View>
-          <View style={styles.bookInfo}>
-            <Text style={styles.bookTitle} numberOfLines={2}>
-              {book.title}
-            </Text>
-            {book.author && (
-              <Text style={styles.bookAuthor} numberOfLines={1}>
-                {book.author}
-              </Text>
-            )}
-            <View style={styles.bookMeta}>
-              <View style={styles.sourceBadge}>
-                <Text style={styles.sourceText}>
-                  {SOURCE_LABELS[entry.source] || entry.source}
+          <TouchableOpacity
+            style={styles.bookCard}
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push(
+                `/(main)/book-detail?entryId=${entry.id}&bookId=${book.id}`
+              )
+            }
+          >
+            <View style={styles.bookCoverPlaceholder}>
+              <Text style={styles.bookCoverEmoji}>📕</Text>
+            </View>
+            <View style={styles.bookInfo}>
+              <View style={styles.titleRow}>
+                <Text style={styles.bookTitle} numberOfLines={2}>
+                  {book.title}
                 </Text>
+                {entry.reactions && entry.reactions.length > 0 && (
+                  <Text style={styles.reactions}>
+                    {entry.reactions.join(" ")}
+                  </Text>
+                )}
               </View>
-              {entry.reactions && entry.reactions.length > 0 && (
-                <Text style={styles.reactions}>
-                  {entry.reactions.join(" ")}
+              {book.author && (
+                <Text style={styles.bookAuthor} numberOfLines={1}>
+                  {book.author}
                 </Text>
               )}
+              <View style={styles.bookMeta}>
+                <View style={[
+                  styles.statusBadge,
+                  entry.status === "reading" && styles.statusBadgeReading,
+                  entry.status === "finished" && styles.statusBadgeFinished,
+                  entry.status === "abandoned" && styles.statusBadgeAbandoned,
+                ]}>
+                  <Text style={styles.statusBadgeText}>
+                    {STATUS_LABELS[entry.status] || entry.status}
+                  </Text>
+                </View>
+                {book.isSeries && (
+                  <View style={styles.seriesBadge}>
+                    <Text style={styles.seriesText}>Series</Text>
+                  </View>
+                )}
+                {SOURCE_LABELS[entry.source] && (
+                  <View style={styles.sourceBadge}>
+                    <Text style={styles.sourceText}>
+                      {SOURCE_LABELS[entry.source]}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </SwipeToDelete>
       );
     },
     [router]
@@ -100,22 +161,9 @@ export default function MyBooks() {
     );
   }
 
-  const hasBooks = reading.length > 0 || finished.length > 0;
-
-  const sections = [
-    ...(reading.length > 0
-      ? [{ type: "header" as const, title: "Currently Reading" }]
-      : []),
-    ...reading.map((item) => ({ type: "book" as const, data: item })),
-    ...(finished.length > 0
-      ? [{ type: "header" as const, title: "Finished" }]
-      : []),
-    ...finished.map((item) => ({ type: "book" as const, data: item })),
-  ];
-
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Books</Text>
+      <Text style={styles.header}>Your Reading History</Text>
 
       <TouchableOpacity
         style={styles.ctaButton}
@@ -123,31 +171,22 @@ export default function MyBooks() {
         onPress={() => router.push("/(main)/reading-log-entry")}
       >
         <Text style={styles.ctaEmoji}>✏️</Text>
-        <Text style={styles.ctaText}>Tell us what you've read</Text>
+        <Text style={styles.ctaText}>Tell us what you read already</Text>
       </TouchableOpacity>
 
-      {!hasBooks ? (
+      {entries.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>📚</Text>
           <Text style={styles.emptyTitle}>No books yet</Text>
           <Text style={styles.emptySubtitle}>
-            Scan a shelf to discover books, or tell us what you've been reading!
+            Scan a shelf to discover books, or tell us what you&apos;ve been reading!
           </Text>
         </View>
       ) : (
         <FlatList
-          data={sections}
-          keyExtractor={(item, idx) =>
-            item.type === "header" ? `h-${item.title}` : `b-${item.data.entry.id}`
-          }
-          renderItem={({ item }) => {
-            if (item.type === "header") {
-              return (
-                <Text style={styles.sectionHeader}>{item.title}</Text>
-              );
-            }
-            return renderBookCard({ item: item.data });
-          }}
+          data={entries}
+          keyExtractor={(item) => item.entry.id}
+          renderItem={renderBookCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -159,6 +198,17 @@ export default function MyBooks() {
           }
         />
       )}
+
+      <ConfirmModal
+        visible={deletingEntryId !== null}
+        title="Remove Book?"
+        message="This will remove the book from your reading history."
+        confirmLabel="Remove"
+        destructive
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </View>
   );
 }
@@ -204,41 +254,41 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.xxl,
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontFamily: fonts.heading,
-    color: colors.inkDark,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
   bookCard: {
     backgroundColor: colors.bgWarm,
     borderRadius: radius.lg,
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.md,
+    padding: spacing.sm,
     marginBottom: spacing.md,
     ...shadows.card,
   },
   bookCoverPlaceholder: {
-    width: 48,
-    height: 64,
+    width: 40,
+    height: 54,
     borderRadius: radius.sm,
     backgroundColor: colors.beamYellowLight,
     justifyContent: "center",
     alignItems: "center",
   },
   bookCoverEmoji: {
-    fontSize: 24,
+    fontSize: 20,
   },
   bookInfo: {
     flex: 1,
     marginLeft: spacing.md,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   bookTitle: {
     fontSize: 15,
     fontFamily: fonts.headingMedium,
     color: colors.inkDark,
+    flex: 1,
   },
   bookAuthor: {
     fontSize: 13,
@@ -252,6 +302,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
+  statusBadge: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  statusBadgeReading: {
+    backgroundColor: colors.beamYellowLight,
+  },
+  statusBadgeFinished: {
+    backgroundColor: colors.tealLight,
+  },
+  statusBadgeAbandoned: {
+    backgroundColor: "rgba(255,107,107,0.12)",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.inkDark,
+  },
   sourceBadge: {
     backgroundColor: colors.tealLight,
     borderRadius: radius.sm,
@@ -264,7 +333,20 @@ const styles = StyleSheet.create({
     color: colors.pageTeal,
   },
   reactions: {
-    fontSize: 14,
+    fontSize: 18,
+  },
+  seriesBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  seriesText: {
+    fontSize: 11,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   emptyState: {
     flex: 1,

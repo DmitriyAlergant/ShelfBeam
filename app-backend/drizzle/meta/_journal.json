@@ -15,6 +15,20 @@
       "when": 1772661726573,
       "tag": "0001_slim_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772666464323,
+      "tag": "0002_clumsy_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772750000000,
+      "tag": "0003_replace_birth_year_with_age_grade",
+      "breakpoints": true
     }
   ]
 }

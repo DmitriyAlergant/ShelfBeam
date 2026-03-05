@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Source is volume-mounted for hot reload in dev
 COPY src/ ./src/
 
-CMD ["python", "-u", "src/main.py"]
+CMD ["watchmedo", "auto-restart", "--directory=src", "--pattern=*.py", "--recursive", "--", "python", "-u", "src/main.py"]

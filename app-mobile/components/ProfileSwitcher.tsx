@@ -3,6 +3,7 @@ import { useAppAuth } from "../lib/auth";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -18,9 +19,10 @@ import { DiceBearAvatar } from "./DiceBearAvatar";
 
 export function ProfileSwitcher() {
   const insets = useSafeAreaInsets();
-  const { activeProfile, setActiveProfile } = useAppContext();
+  const { activeProfile, setActiveProfile, pendingSave } = useAppContext();
   const { signOut, getToken } = useAppAuth();
   const router = useRouter();
+  const [savingFromBar, setSavingFromBar] = useState(false);
 
   const [showSheet, setShowSheet] = useState(false);
   const [profiles, setProfiles] = useState<ProfileData[]>([]);
@@ -51,7 +53,7 @@ export function ProfileSwitcher() {
 
   return (
     <>
-      <View style={[styles.bar, { paddingTop: insets.top + spacing.xs }]}>
+      <View style={[styles.bar, { paddingTop: insets.top + spacing.md }]}>
         <TouchableOpacity
           style={styles.profileButton}
           onPress={openSheet}
@@ -65,15 +67,30 @@ export function ProfileSwitcher() {
           <Text style={styles.profileName} numberOfLines={1}>
             {activeProfile.name}
           </Text>
-          <Text style={styles.chevron}>▾</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => signOut()}
-          style={styles.logoutButton}
-        >
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
+        {pendingSave && (
+          <TouchableOpacity
+            style={[styles.saveButton, savingFromBar && styles.saveButtonDisabled]}
+            disabled={savingFromBar}
+            onPress={async () => {
+              setSavingFromBar(true);
+              try {
+                await pendingSave();
+              } catch {
+                Alert.alert("Save Error", "Your changes could not be saved.");
+              } finally {
+                setSavingFromBar(false);
+              }
+            }}
+          >
+            {savingFromBar ? (
+              <ActivityIndicator size="small" color={colors.inkDark} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       <Modal visible={showSheet} animationType="slide" transparent>
@@ -124,8 +141,15 @@ export function ProfileSwitcher() {
               onPress={handleSwitchReader}
             >
               <Text style={sheetStyles.switchText}>
-                Change Reader or Add New
+                Manage Readers
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={sheetStyles.logoutButton}
+              onPress={() => { setShowSheet(false); signOut(); }}
+            >
+              <Text style={sheetStyles.logoutText}>Log Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -141,7 +165,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.bgWarm,
   },
@@ -161,14 +185,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.inkMedium,
   },
-  logoutButton: {
+  saveButton: {
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    paddingLeft: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.beamYellow,
+    ...shadows.button,
   },
-  logoutText: {
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
     fontSize: 14,
     fontFamily: fonts.bodyMedium,
-    color: colors.spineCoral,
+    color: colors.inkDark,
   },
 });
 
@@ -208,6 +238,7 @@ const sheetStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   item: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
@@ -233,5 +264,15 @@ const sheetStyles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.bodyMedium,
     color: colors.shelfBrown,
+  },
+  logoutButton: {
+    marginTop: spacing.sm,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  logoutText: {
+    fontSize: 15,
+    fontFamily: fonts.bodyMedium,
+    color: colors.spineCoral,
   },
 });

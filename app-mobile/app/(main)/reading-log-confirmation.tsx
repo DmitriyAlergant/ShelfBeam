@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,29 +13,23 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
 import {
   createBook,
   addToHistory,
+  updateHistoryEntry,
   type ParsedBookEntry,
 } from "../../lib/api";
-
-const STATUS_OPTIONS = [
-  { key: "reading", label: "Reading" },
-  { key: "finished", label: "Finished" },
-];
-
-const REACTION_EMOJIS = [
-  "👍", "👎", "❤️", "🔥", "😂", "😢", "😱", "🤔", "🤯", "💤", "😡",
-];
+import EmojiReactions from "../../components/EmojiReactions";
+import { STATUS_OPTIONS } from "../../lib/reading-status";
 
 type EditableEntry = ParsedBookEntry & {
   removed: boolean;
   reactions: string[];
   status: string;
+  comment: string;
 };
 
 export default function ReadingLogConfirmationScreen() {
@@ -44,7 +40,13 @@ export default function ReadingLogConfirmationScreen() {
   const { activeProfile } = useAppContext();
   const [saving, setSaving] = useState(false);
 
-  const parsedEntries: ParsedBookEntry[] = parsed ? JSON.parse(parsed) : [];
+  const parsedEntries: ParsedBookEntry[] = (() => {
+    try {
+      return parsed ? JSON.parse(parsed) : [];
+    } catch {
+      return [];
+    }
+  })();
 
   const [entries, setEntries] = useState<EditableEntry[]>(
     parsedEntries.map((e) => ({
@@ -52,6 +54,7 @@ export default function ReadingLogConfirmationScreen() {
       removed: false,
       reactions: e.inferred_reactions || [],
       status: e.inferred_status || "reading",
+      comment: e.comment || "",
     }))
   );
 
@@ -89,35 +92,55 @@ export default function ReadingLogConfirmationScreen() {
 
     setSaving(true);
 
-    const activeEntries = entries.filter((e) => !e.removed);
+    try {
+      const activeEntries = entries.filter((e) => !e.removed);
 
-    for (const entry of activeEntries) {
-      const book = await createBook(token, {
-        title: entry.title,
-        author: entry.author,
-      });
+      for (const entry of activeEntries) {
+        if (entry.entry_type === "update" && entry.existing_history_entry_id) {
+          // Update existing history entry — only send fields that were actually inferred
+          const updateData: Partial<{ status: string; reactions: string[]; comment: string }> = {};
+          if (entry.inferred_status) updateData.status = entry.status;
+          if (entry.inferred_reactions && entry.inferred_reactions.length > 0) updateData.reactions = entry.reactions;
+          if (entry.comment) updateData.comment = entry.comment;
+          await updateHistoryEntry(token, activeProfile.id, entry.existing_history_entry_id, updateData);
+        } else {
+          // New book: create book then add to history
+          const book = await createBook(token, {
+            title: entry.title,
+            author: entry.author,
+            is_series: entry.is_series ?? false,
+          });
 
-      await addToHistory(token, activeProfile.id, {
-        book_id: book.id,
-        source: "reading_log",
-        status: entry.status,
-      });
+          await addToHistory(token, activeProfile.id, {
+            book_id: book.id,
+            source: "reading_log",
+            status: entry.status,
+            reactions: entry.reactions,
+            comment: entry.comment || undefined,
+          });
+        }
+      }
 
-      // Update reactions if any
-      // Note: reactions are set after history entry creation via the entry itself
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Navigate back to books tab
+      router.dismissAll();
+      router.replace("/(main)/(tabs)/books");
+    } catch {
+      Alert.alert("Error", "Failed to save reading log. Please try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-
-    // Navigate back to books tab
-    router.dismissAll();
-    router.replace("/(main)/(tabs)/books");
   };
 
-  const activeCount = entries.filter((e) => !e.removed).length;
+  const activeEntries = entries.filter((e) => !e.removed);
+  const newEntries = entries.filter((e) => e.entry_type !== "update");
+  const updateEntries = entries.filter((e) => e.entry_type === "update");
+  const activeCount = activeEntries.length;
+  const activeNewCount = newEntries.filter((e) => !e.removed).length;
+  const activeUpdateCount = updateEntries.filter((e) => !e.removed).length;
 
   return (
     <View style={styles.container}>
@@ -136,106 +159,167 @@ export default function ReadingLogConfirmationScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.header}>Here's what we found</Text>
+        <Text style={styles.header}>Here&apos;s what we found</Text>
         <Text style={styles.subtitle}>
           Review and edit before adding to your history.
         </Text>
 
-        {entries.map((entry, idx) => {
-          if (entry.removed) {
-            return (
-              <View key={idx} style={styles.removedCard}>
-                <Text style={styles.removedText}>
-                  {entry.title} — removed
-                </Text>
-                <TouchableOpacity
-                  onPress={() => updateEntry(idx, { removed: false })}
-                >
-                  <Text style={styles.undoText}>Undo</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
+        {/* New books section */}
+        {newEntries.length > 0 && (
+          <>
+            {updateEntries.length > 0 && (
+              <Text style={styles.sectionHeader}>New Books</Text>
+            )}
+            {newEntries.map((entry) => {
+              const idx = entries.indexOf(entry);
+              if (entry.removed) {
+                return (
+                  <View key={idx} style={styles.removedCard}>
+                    <Text style={styles.removedText}>
+                      {entry.title} — removed
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => updateEntry(idx, { removed: false })}
+                    >
+                      <Text style={styles.undoText}>Undo</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
 
-          return (
-            <View key={idx} style={styles.entryCard}>
-              <View style={styles.entryHeader}>
-                <View style={styles.entryTitleRow}>
-                  <Text style={styles.entryEmoji}>📕</Text>
-                  <View style={styles.entryTitleWrap}>
-                    <TextInput
-                      style={styles.entryTitle}
-                      value={entry.title}
-                      onChangeText={(t) => updateEntry(idx, { title: t })}
-                      placeholder="Book title"
-                      placeholderTextColor={colors.inkLight}
-                    />
-                    <TextInput
-                      style={styles.entryAuthor}
-                      value={entry.author || ""}
-                      onChangeText={(a) => updateEntry(idx, { author: a })}
-                      placeholder="Author (optional)"
-                      placeholderTextColor={colors.inkLight}
+              return (
+                <View key={idx} style={styles.entryCard}>
+                  <View style={styles.entryHeader}>
+                    <View style={styles.entryTitleRow}>
+                      <Text style={styles.entryEmoji}>📕</Text>
+                      <View style={styles.entryTitleWrap}>
+                        <TextInput
+                          style={styles.entryTitle}
+                          value={entry.title}
+                          onChangeText={(t) => updateEntry(idx, { title: t })}
+                          placeholder="Book title"
+                          placeholderTextColor={colors.inkLight}
+                        />
+                        <TextInput
+                          style={styles.entryAuthor}
+                          value={entry.author || ""}
+                          onChangeText={(a) => updateEntry(idx, { author: a })}
+                          placeholder="Author (optional)"
+                          placeholderTextColor={colors.inkLight}
+                        />
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => updateEntry(idx, { removed: true })}
+                    >
+                      <Text style={styles.removeIcon}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Status + Reactions row */}
+                  <View style={styles.statusReactionRow}>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={[
+                          styles.statusChip,
+                          entry.status === opt.key && styles.statusChipActive,
+                        ]}
+                        onPress={() => updateEntry(idx, { status: opt.key })}
+                      >
+                        <Text
+                          style={[
+                            styles.statusChipText,
+                            entry.status === opt.key && styles.statusChipTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={styles.reactionDivider} />
+                    <EmojiReactions
+                      reactions={entry.reactions}
+                      onToggle={(emoji) => toggleReaction(idx, emoji)}
+                      compact
                     />
                   </View>
+
+                  {/* Comment */}
+                  <TextInput
+                    style={styles.commentInput}
+                    value={entry.comment}
+                    onChangeText={(c) => updateEntry(idx, { comment: c })}
+                    placeholder="Add a comment..."
+                    placeholderTextColor={colors.inkLight}
+                    multiline
+                  />
                 </View>
-                <TouchableOpacity
-                  onPress={() => updateEntry(idx, { removed: true })}
-                >
-                  <Text style={styles.removeIcon}>✕</Text>
-                </TouchableOpacity>
-              </View>
+              );
+            })}
+          </>
+        )}
 
-              {/* Status selector */}
-              <View style={styles.statusRow}>
-                {STATUS_OPTIONS.map((opt) => (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.statusChip,
-                      entry.status === opt.key && styles.statusChipActive,
-                    ]}
-                    onPress={() => updateEntry(idx, { status: opt.key })}
-                  >
-                    <Text
-                      style={[
-                        styles.statusChipText,
-                        entry.status === opt.key && styles.statusChipTextActive,
-                      ]}
-                    >
-                      {opt.label}
+        {/* Updates section */}
+        {updateEntries.length > 0 && (
+          <>
+            <Text style={styles.sectionHeader}>Updates to Your History</Text>
+            {updateEntries.map((entry) => {
+              const idx = entries.indexOf(entry);
+              // Build compact change summary
+              const changes: string[] = [];
+              if (entry.inferred_status) {
+                const statusLabel = STATUS_OPTIONS.find((o) => o.key === entry.status);
+                changes.push(statusLabel ? statusLabel.label.toLowerCase() : entry.status);
+              }
+              if (entry.reactions.length > 0) changes.push(entry.reactions.join(""));
+              if (entry.comment) changes.push(`"${entry.comment}"`);
+              const summary = changes.length > 0 ? changes.join(" · ") : "minor update";
+
+              if (entry.removed) {
+                return (
+                  <View key={idx} style={styles.removedCard}>
+                    <Text style={styles.removedText}>
+                      {entry.title} — skipped
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Reaction chips */}
-              <View style={styles.reactionRow}>
-                {REACTION_EMOJIS.map((emoji) => {
-                  const isSelected = entry.reactions.includes(emoji);
-                  return (
                     <TouchableOpacity
-                      key={emoji}
-                      style={[
-                        styles.reactionChip,
-                        isSelected && styles.reactionChipSelected,
-                      ]}
-                      onPress={() => toggleReaction(idx, emoji)}
+                      onPress={() => updateEntry(idx, { removed: false })}
                     >
-                      <Text style={styles.reactionChipEmoji}>{emoji}</Text>
+                      <Text style={styles.undoText}>Undo</Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          );
-        })}
+                  </View>
+                );
+              }
+
+              return (
+                <View key={idx} style={styles.updateRow}>
+                  <View style={styles.updateContent}>
+                    <Text style={styles.updateTitle} numberOfLines={1}>
+                      {entry.title}
+                      {entry.author ? (
+                        <Text style={styles.updateAuthor}> by {entry.author}</Text>
+                      ) : null}
+                    </Text>
+                    <Text style={styles.updateSummary} numberOfLines={2}>
+                      {summary}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => updateEntry(idx, { removed: true })}
+                  >
+                    <Text style={styles.removeIcon}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </>
+        )}
 
         {entries.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🤔</Text>
             <Text style={styles.emptyText}>
-              We couldn't find any books. Try describing them differently!
+              We couldn&apos;t find any books. Try describing them differently!
             </Text>
           </View>
         )}
@@ -258,7 +342,11 @@ export default function ReadingLogConfirmationScreen() {
             <ActivityIndicator size="small" color={colors.inkDark} />
           ) : (
             <Text style={styles.confirmText}>
-              Looks good! Add {activeCount} book{activeCount !== 1 ? "s" : ""}
+              {activeUpdateCount > 0 && activeNewCount > 0
+                ? `Add ${activeNewCount} new, update ${activeUpdateCount}`
+                : activeUpdateCount > 0
+                  ? `Update ${activeUpdateCount} book${activeUpdateCount !== 1 ? "s" : ""}`
+                  : `Add ${activeNewCount} book${activeNewCount !== 1 ? "s" : ""}`}
             </Text>
           )}
         </TouchableOpacity>
@@ -286,7 +374,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   header: {
     fontSize: 24,
@@ -300,12 +388,48 @@ const styles = StyleSheet.create({
     color: colors.inkMedium,
     marginBottom: spacing.lg,
   },
+  sectionHeader: {
+    fontSize: 16,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkMedium,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
   entryCard: {
     backgroundColor: colors.bgWarm,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    padding: spacing.sm + 4,
+    marginBottom: spacing.sm,
     ...shadows.card,
+  },
+  updateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.bgWarm,
+    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.pageTeal,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  updateContent: {
+    flex: 1,
+  },
+  updateTitle: {
+    fontSize: 15,
+    fontFamily: fonts.headingMedium,
+    color: colors.inkDark,
+  },
+  updateAuthor: {
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+  },
+  updateSummary: {
+    fontSize: 13,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    marginTop: 2,
   },
   entryHeader: {
     flexDirection: "row",
@@ -343,14 +467,16 @@ const styles = StyleSheet.create({
     color: colors.inkLight,
     padding: spacing.sm,
   },
-  statusRow: {
+  statusReactionRow: {
     flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   statusChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     borderRadius: radius.md,
     backgroundColor: colors.bgCream,
   },
@@ -358,34 +484,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.beamYellow,
   },
   statusChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fonts.bodyMedium,
     color: colors.inkMedium,
   },
   statusChipTextActive: {
     color: colors.inkDark,
   },
-  reactionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginTop: spacing.md,
+  reactionDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.inkLight,
+    opacity: 0.3,
+    marginHorizontal: 2,
   },
-  reactionChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  commentInput: {
+    marginTop: spacing.sm,
+    fontSize: 14,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
     backgroundColor: colors.bgCream,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reactionChipSelected: {
-    backgroundColor: colors.coralLight,
-    borderWidth: 2,
-    borderColor: colors.spineCoral,
-  },
-  reactionChipEmoji: {
-    fontSize: 16,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    minHeight: 36,
   },
   removedCard: {
     flexDirection: "row",

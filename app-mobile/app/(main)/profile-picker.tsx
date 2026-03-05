@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,11 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import ConfirmModal from "../../components/ConfirmModal";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
 import { useUserSync } from "../../lib/useUserSync";
-import { getProfiles, createProfile, type ProfileData } from "../../lib/api";
+import { getProfiles, createProfile, deleteProfile, type ProfileData } from "../../lib/api";
 import { DiceBearAvatar } from "../../components/DiceBearAvatar";
 import { AvatarPicker } from "../../components/AvatarPicker";
 
@@ -23,12 +25,16 @@ export default function ProfilePickerScreen() {
   useUserSync();
 
   const { getToken } = useAppAuth();
-  const { appUserId, setActiveProfile } = useAppContext();
+  const { appUserId, activeProfile, setActiveProfile } = useAppContext();
   const router = useRouter();
 
   const [profiles, setProfiles] = useState<ProfileData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const editStartedAt = useRef(0);
+  const [deletingProfile, setDeletingProfile] = useState<ProfileData | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchProfiles = useCallback(async () => {
     const token = await getToken();
@@ -49,6 +55,20 @@ export default function ProfilePickerScreen() {
     router.replace("/(main)/(tabs)");
   };
 
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingProfile) return;
+    setDeleteLoading(true);
+    const token = await getToken();
+    if (!token) return;
+    await deleteProfile(token, deletingProfile.id);
+    setProfiles((prev) => prev.filter((p) => p.id !== deletingProfile.id));
+    if (activeProfile?.id === deletingProfile.id) {
+      setActiveProfile(null);
+    }
+    setDeleteLoading(false);
+    setDeletingProfile(null);
+  }, [deletingProfile, getToken, activeProfile, setActiveProfile]);
+
   const handleProfileCreated = (newProfile: ProfileData) => {
     setProfiles((prev) => [...prev, newProfile]);
     setShowAddModal(false);
@@ -56,34 +76,56 @@ export default function ProfilePickerScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.emoji}>👋</Text>
-        <Text style={styles.title}>Who's Reading?</Text>
-        <Text style={styles.subtitle}>Pick your reader profile</Text>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.beamYellow} />
+      <Pressable style={styles.fill} onPress={editing ? () => { if (Date.now() - editStartedAt.current > 300) setEditing(false); } : undefined}>
+        <View style={styles.header}>
+          <Text style={styles.emoji}>👋</Text>
+          <Text style={styles.title}>Who&apos;s Reading?</Text>
+          <Text style={styles.subtitle}>Pick your reader profile</Text>
         </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.grid}
-          showsVerticalScrollIndicator={false}
-        >
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.beamYellow} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.grid}
+            showsVerticalScrollIndicator={false}
+          >
           {profiles.map((profile) => (
-            <TouchableOpacity
-              key={profile.id}
-              style={styles.card}
-              onPress={() => handleSelect(profile)}
-              activeOpacity={0.8}
-            >
-              <DiceBearAvatar
-                seed={profile.avatarKey || profile.name}
-                size={72}
-              />
-              <Text style={styles.profileName}>{profile.name}</Text>
-            </TouchableOpacity>
+            <View key={profile.id} style={styles.cardWrapper}>
+              {editing ? (
+                <Pressable style={styles.card} onPress={() => setEditing(false)}>
+                  <DiceBearAvatar
+                    seed={profile.avatarKey || profile.name}
+                    size={72}
+                  />
+                  <Text style={styles.profileName}>{profile.name}</Text>
+                </Pressable>
+              ) : (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => handleSelect(profile)}
+                  onLongPress={() => { editStartedAt.current = Date.now(); setEditing(true); }}
+                  activeOpacity={0.8}
+                >
+                  <DiceBearAvatar
+                    seed={profile.avatarKey || profile.name}
+                    size={72}
+                  />
+                  <Text style={styles.profileName}>{profile.name}</Text>
+                </TouchableOpacity>
+              )}
+              {editing && (
+                <TouchableOpacity
+                  style={styles.deleteBadge}
+                  onPress={() => setDeletingProfile(profile)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.deleteX}>{"\u00d7"}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ))}
 
           <TouchableOpacity
@@ -97,12 +139,28 @@ export default function ProfilePickerScreen() {
             <Text style={styles.addLabel}>Add Reader</Text>
           </TouchableOpacity>
         </ScrollView>
-      )}
+        )}
+      </Pressable>
 
       <AddProfileModal
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onCreated={handleProfileCreated}
+      />
+
+      <ConfirmModal
+        visible={deletingProfile !== null}
+        title="Delete Reader Profile"
+        message={
+          deletingProfile
+            ? `Permanently delete "${deletingProfile.name}"?\n\nThis will remove all their reading history, scans, and recommendations.`
+            : ""
+        }
+        confirmLabel="Delete Forever"
+        destructive
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingProfile(null)}
       />
     </SafeAreaView>
   );
@@ -207,6 +265,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgCream,
   },
+  fill: {
+    flex: 1,
+  },
   header: {
     alignItems: "center",
     paddingTop: spacing.xxl,
@@ -237,8 +298,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
+    paddingTop: 10,
     gap: 20,
     paddingBottom: 40,
+    overflow: "visible",
+  },
+  cardWrapper: {
+    position: "relative",
+    overflow: "visible",
   },
   card: {
     width: 140,
@@ -247,6 +314,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     alignItems: "center",
     ...shadows.card,
+  },
+  deleteBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.spineCoral,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+    ...shadows.button,
+  },
+  deleteX: {
+    color: "#fff",
+    fontSize: 18,
+    fontFamily: fonts.headingSemiBold,
+    lineHeight: 24,
+    marginTop: -1,
   },
   profileName: {
     fontSize: 17,

@@ -2,36 +2,23 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../lib/auth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius, spacing, shadows } from "../../lib/theme";
 import { useAppContext } from "../../lib/AppContext";
-import {
-  getBook,
-  updateHistoryEntry,
-  deleteHistoryEntry,
-  type BookData,
-  type HistoryEntry,
-  getHistory,
-} from "../../lib/api";
-
-const REACTION_EMOJIS = [
-  "👍", "👎", "❤️", "🔥", "😂", "😢", "😱", "🤔", "🤯", "💤", "😡",
-];
-
-const STATUS_OPTIONS = [
-  { key: "reading", label: "Currently Reading", emoji: "📖" },
-  { key: "finished", label: "Finished", emoji: "✅" },
-];
+import { useHistoryStore } from "../../lib/stores/useHistoryStore";
+import EmojiReactions from "../../components/EmojiReactions";
+import { STATUS_OPTIONS } from "../../lib/reading-status";
 
 export default function BookDetailScreen() {
   const { entryId, bookId } = useLocalSearchParams<{
@@ -43,39 +30,43 @@ export default function BookDetailScreen() {
   const { getToken } = useAppAuth();
   const { activeProfile } = useAppContext();
 
-  const [book, setBook] = useState<BookData | null>(null);
-  const [entry, setEntry] = useState<HistoryEntry | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [reactions, setReactions] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("reading");
+  const storeEntry = useHistoryStore((s) => s.entries.find((e) => e.entry.id === entryId));
+  const storeUpdateEntry = useHistoryStore((s) => s.updateEntry);
+  const storeRemoveEntry = useHistoryStore((s) => s.removeEntry);
+  const storeFetchHistory = useHistoryStore((s) => s.fetchHistory);
 
+  const book = storeEntry?.book ?? null;
+  const [loading, setLoading] = useState(!storeEntry);
+  const [error, setError] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<string[]>(storeEntry?.entry.reactions || []);
+  const [status, setStatus] = useState<string>(storeEntry?.entry.status || "reading");
+  const [comment, setComment] = useState<string>(storeEntry?.entry.comment || "");
+
+  // Fallback: if entry not in store (deep link), fetch history once
   useEffect(() => {
+    if (storeEntry) { setLoading(false); return; }
+    if (!activeProfile) return;
     (async () => {
-      if (!bookId || !activeProfile) return;
       const token = await getToken();
       if (!token) return;
-
       try {
-        const bookData = await getBook(token, bookId);
-        setBook(bookData);
-
-        // Find the history entry
-        const history = await getHistory(token, activeProfile.id);
-        const all = [...history.reading, ...history.finished];
-        const found = all.find((h) => h.entry.id === entryId);
-        if (found) {
-          setEntry(found.entry);
-          setReactions(found.entry.reactions || []);
-          setStatus(found.entry.status);
-        }
-      } catch (err) {
-        console.error("Failed to load book detail:", err);
+        await storeFetchHistory(token, activeProfile.id);
+      } catch {
+        setError("Couldn't load this book. Please go back and try again.");
       }
-
       setLoading(false);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, entryId, activeProfile?.id]);
+  }, []);
+
+  // Sync local state when store entry arrives (from fallback fetch)
+  useEffect(() => {
+    if (storeEntry) {
+      setReactions(storeEntry.entry.reactions || []);
+      setStatus(storeEntry.entry.status);
+      setComment(storeEntry.entry.comment || "");
+    }
+  }, [storeEntry?.entry.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleReaction = useCallback(
     async (emoji: string) => {
@@ -92,15 +83,9 @@ export default function BookDetailScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      const updated = await updateHistoryEntry(
-        token,
-        activeProfile.id,
-        entryId,
-        { reactions: newReactions }
-      );
-      setEntry(updated);
+      await storeUpdateEntry(token, activeProfile.id, entryId, { reactions: newReactions });
     },
-    [activeProfile, entryId, getToken, reactions]
+    [activeProfile, entryId, getToken, reactions, storeUpdateEntry]
   );
 
   const toggleStatus = useCallback(
@@ -110,15 +95,20 @@ export default function BookDetailScreen() {
       if (!token) return;
 
       setStatus(newStatus);
-      const updated = await updateHistoryEntry(
-        token,
-        activeProfile.id,
-        entryId,
-        { status: newStatus }
-      );
-      setEntry(updated);
+      await storeUpdateEntry(token, activeProfile.id, entryId, { status: newStatus });
     },
-    [activeProfile, entryId, getToken, status]
+    [activeProfile, entryId, getToken, status, storeUpdateEntry]
+  );
+
+  const saveComment = useCallback(
+    async (text: string) => {
+      if (!activeProfile || !entryId) return;
+      const token = await getToken();
+      if (!token) return;
+
+      await storeUpdateEntry(token, activeProfile.id, entryId, { comment: text || "" });
+    },
+    [activeProfile, entryId, getToken, storeUpdateEntry]
   );
 
   const handleDelete = useCallback(async () => {
@@ -141,14 +131,23 @@ export default function BookDetailScreen() {
     if (!activeProfile || !entryId) return;
     const token = await getToken();
     if (!token) return;
-    await deleteHistoryEntry(token, activeProfile.id, entryId);
+    await storeRemoveEntry(token, activeProfile.id, entryId);
     router.back();
-  }, [activeProfile, entryId, getToken, router]);
+  }, [activeProfile, entryId, getToken, router, storeRemoveEntry]);
 
   if (loading || !book) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.beamYellow} />
+        {error ? (
+          <>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <TouchableOpacity style={{ marginTop: spacing.lg, padding: spacing.md }} onPress={() => router.back()}>
+              <Text style={styles.backText}>← Go Back</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <ActivityIndicator size="large" color={colors.beamYellow} />
+        )}
       </View>
     );
   }
@@ -182,6 +181,11 @@ export default function BookDetailScreen() {
       {/* Title & Author */}
       <View style={styles.infoSection}>
         <Text style={styles.title}>{book.title}</Text>
+        {book.isSeries && (
+          <View style={styles.seriesBadge}>
+            <Text style={styles.seriesBadgeText}>Series</Text>
+          </View>
+        )}
         {book.author && <Text style={styles.author}>{book.author}</Text>}
       </View>
 
@@ -212,26 +216,24 @@ export default function BookDetailScreen() {
         </View>
       </View>
 
-      {/* Reactions */}
+      {/* Reactions — Slack-style add/remove */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>How did you feel about it?</Text>
-        <View style={styles.reactionGrid}>
-          {REACTION_EMOJIS.map((emoji) => {
-            const isSelected = reactions.includes(emoji);
-            return (
-              <TouchableOpacity
-                key={emoji}
-                style={[
-                  styles.reactionPill,
-                  isSelected && styles.reactionPillSelected,
-                ]}
-                onPress={() => toggleReaction(emoji)}
-              >
-                <Text style={styles.reactionEmoji}>{emoji}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <EmojiReactions reactions={reactions} onToggle={toggleReaction} />
+      </View>
+
+      {/* Comment */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Your comment</Text>
+        <TextInput
+          style={styles.commentInput}
+          value={comment}
+          onChangeText={setComment}
+          onBlur={() => saveComment(comment)}
+          placeholder="What did you think about this book?"
+          placeholderTextColor={colors.inkLight}
+          multiline
+        />
       </View>
 
       {/* Description */}
@@ -352,26 +354,29 @@ const styles = StyleSheet.create({
   statusLabelActive: {
     color: colors.inkDark,
   },
-  reactionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
+  seriesBadge: {
+    backgroundColor: colors.tealLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginTop: spacing.xs,
   },
-  reactionPill: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  seriesBadgeText: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.pageTeal,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  commentInput: {
+    fontSize: 15,
+    fontFamily: fonts.body,
+    color: colors.inkDark,
     backgroundColor: colors.bgWarm,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reactionPillSelected: {
-    backgroundColor: colors.coralLight,
-    borderWidth: 2,
-    borderColor: colors.spineCoral,
-  },
-  reactionEmoji: {
-    fontSize: 22,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
   description: {
     fontSize: 15,
@@ -388,5 +393,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.bodyMedium,
     color: colors.spineCoral,
+  },
+  errorMessage: {
+    fontSize: 16,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    textAlign: "center",
+    paddingHorizontal: spacing.xl,
   },
 });
