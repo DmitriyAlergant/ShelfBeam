@@ -1,4 +1,4 @@
-"""Standalone BookBeam pipeline: image -> detection -> OCR -> recommendations.
+"""Standalone ShelfBeam pipeline: image -> detection -> OCR -> recommendations.
 
 Runs locally without Docker or the backend API. Reads reader profile + history
 directly from the local Postgres DB. Does NOT create a scan entity.
@@ -105,7 +105,7 @@ def _output_result(result: dict, output_path: str | None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Standalone BookBeam pipeline: image -> book detection -> recommendations"
+        description="Standalone ShelfBeam pipeline: image -> book detection -> recommendations"
     )
     parser.add_argument("image", nargs="?", help="Path to a bookshelf photo (jpg/png)")
     parser.add_argument("--stage", choices=["detect", "ocr", "normalize", "recommend"], help="Run a single pipeline stage")
