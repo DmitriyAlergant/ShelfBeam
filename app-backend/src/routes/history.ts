@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "@clerk/express";
 import { db } from "../db";
 import { bookHistoryEntry, book, readerProfile } from "../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { resolveAppUser } from "../lib/resolve-user";
 
 const router = Router();
@@ -33,7 +33,7 @@ router.get("/api/profiles/:profileId/history", requireAuth(), async (req: Reques
     .from(bookHistoryEntry)
     .leftJoin(book, eq(bookHistoryEntry.bookId, book.id))
     .where(eq(bookHistoryEntry.readerProfileId, req.params.profileId as string))
-    .orderBy(desc(bookHistoryEntry.createdAt));
+    .orderBy(asc(bookHistoryEntry.createdAt), asc(bookHistoryEntry.id));
 
   res.json(rows);
 });

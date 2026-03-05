@@ -56,7 +56,7 @@ router.post("/api/scans", requireAuth(), async (req: Request, res: Response) => 
       readerProfileId: reader_profile_id,
       imageUrl: image_url,
       readerComment: reader_comment || null,
-      processingStatus: "detecting",
+      processingStatus: "pending",
     })
     .returning();
 

@@ -28,12 +28,11 @@ import {
 } from "../../../lib/api";
 
 const PROCESSING_STEPS = [
-  { key: "pending", label: "In queue...", emoji: "⏳" },
-  { key: "detecting", label: "Finding books...", emoji: "🔍" },
-  { key: "reading", label: "Reading spines...", emoji: "📖" },
-  { key: "looking_up", label: "Learning...", emoji: "📚" },
-  { key: "recommending", label: "Picking favorites...", emoji: "⭐" },
-  { key: "done", label: "Ready!", emoji: "✨" },
+  { key: "pending", label: "In queue", emoji: "⏳" },
+  { key: "detecting", label: "Finding books", emoji: "🔍" },
+  { key: "reading", label: "Reading spines", emoji: "📖" },
+  { key: "looking_up", label: "Learning", emoji: "📚" },
+  { key: "recommending", label: "Picking favorites", emoji: "⭐" },
 ];
 
 const TERMINAL_STATUSES = ["done", "error", "failed"];
@@ -55,7 +54,7 @@ export default function ScanDetailScreen() {
   const [comment, setComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
   const [takenBookKeys, setTakenBookKeys] = useState<Set<string>>(new Set());
-  const [imageExpanded, setImageExpanded] = useState(true);
+  const [imageExpanded, setImageExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -223,7 +222,7 @@ export default function ScanDetailScreen() {
     >
       {/* Back button */}
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/scan")}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
       </View>
@@ -247,80 +246,59 @@ export default function ScanDetailScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Reader comment */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Any special wishes for today?</Text>
-        <View style={styles.commentRow}>
-          <TextInput
-            style={styles.commentInput}
-            value={comment}
-            onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
-            placeholder="e.g. Something funny with animals..."
-            placeholderTextColor={colors.inkLight}
-            onBlur={saveComment}
-            returnKeyType="done"
-            onSubmitEditing={saveComment}
-          />
-          {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
-        </View>
-        {comment.trim().length > 0 && isDone && (
-          <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
-            <Text style={styles.refreshRecoText}>Refresh Recommendations</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       {/* Processing stepper */}
-      {!isDone && !isError && (
-        <View style={styles.section}>
-          <View style={styles.stepper}>
-            {PROCESSING_STEPS.map((step, idx) => {
-              const isActive = idx === currentStep;
-              const isComplete = idx < currentStep;
-              return (
-                <View key={step.key} style={styles.stepItem}>
-                  <View
-                    style={[
-                      styles.stepCircle,
-                      isActive && styles.stepCircleActive,
-                      isComplete && styles.stepCircleComplete,
-                    ]}
-                  >
-                    <Text style={styles.stepEmoji}>
-                      {isComplete ? "✓" : step.emoji}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.stepLabel,
-                      isActive && styles.stepLabelActive,
-                      isComplete && styles.stepLabelComplete,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {step.label}
-                  </Text>
-                  {idx < PROCESSING_STEPS.length - 1 && (
+      {!isDone && !isError && (() => {
+        const windowStart = currentStep > 0 ? 1 : 0;
+        const visibleSteps = PROCESSING_STEPS.slice(windowStart);
+        return (
+          <View style={styles.section}>
+            <View style={styles.stepper}>
+              {visibleSteps.map((step, visIdx) => {
+                const globalIdx = windowStart + visIdx;
+                const isActive = globalIdx === currentStep;
+                const isComplete = globalIdx < currentStep;
+                return (
+                  <View key={step.key} style={styles.stepItem}>
                     <View
                       style={[
-                        styles.stepLine,
-                        isComplete && styles.stepLineComplete,
+                        styles.stepCircle,
+                        isActive && styles.stepCircleActive,
+                        isComplete && styles.stepCircleComplete,
                       ]}
-                    />
-                  )}
-                </View>
-              );
-            })}
-          </View>
-          {currentStep < PROCESSING_STEPS.length - 1 && (
+                    >
+                      <Text style={styles.stepEmoji}>
+                        {isComplete ? "✓" : step.emoji}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.stepLabel,
+                        isActive && styles.stepLabelActive,
+                        isComplete && styles.stepLabelComplete,
+                      ]}
+                    >
+                      {step.label}
+                    </Text>
+                    {visIdx < visibleSteps.length - 1 && (
+                      <View
+                        style={[
+                          styles.stepLine,
+                          isComplete && styles.stepLineComplete,
+                        ]}
+                      />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
             <ActivityIndicator
               size="small"
               color={colors.beamYellow}
               style={{ marginTop: spacing.md }}
             />
-          )}
-        </View>
-      )}
+          </View>
+        );
+      })()}
 
       {/* Error state */}
       {isError && (
@@ -335,79 +313,96 @@ export default function ScanDetailScreen() {
         </View>
       )}
 
-      {/* Detected books */}
-      {detectedBooks.length > 0 && (
+      {/* Results (only when done) */}
+      {isDone && scan.recommendationSummary && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Books Found</Text>
-          {detectedBooks.map((book, idx) => {
-            const isTaken = takenBookKeys.has(bookKey(book));
+          {/* 1. Heading */}
+          <Text style={styles.sectionTitle}>
+            {Array.isArray(scan.recommendation) && scan.recommendation.length > 0
+              ? "Our Picks for You"
+              : "Hmm..."}
+          </Text>
+
+          {/* 2. Ranked book cards */}
+          {Array.isArray(scan.recommendation) && scan.recommendation.map((pick, i) => {
+            const pickAsBook: DetectedBook = { title: pick.title, author: pick.author };
+            const isTaken = takenBookKeys.has(bookKey(pickAsBook));
+            const rank = pick.rank ?? i + 1;
             return (
-              <View
-                key={`${book.title}-${idx}`}
-                style={styles.bookCard}
-              >
-                {book.cover_url ? (
-                  <Image
-                    source={{ uri: book.cover_url }}
-                    style={styles.bookCover}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.bookCoverPlaceholder}>
-                    <Text style={styles.bookCoverEmoji}>📕</Text>
-                  </View>
-                )}
+              <View key={i} style={styles.bookCard}>
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>{rank}</Text>
+                </View>
                 <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>
-                    {book.title}
-                  </Text>
-                  {book.author && (
-                    <Text style={styles.bookAuthor} numberOfLines={1}>
-                      {book.author}
-                    </Text>
+                  <Text style={styles.bookTitle} numberOfLines={2}>{pick.title}</Text>
+                  {pick.author && (
+                    <Text style={styles.bookAuthor} numberOfLines={1}>{pick.author}</Text>
                   )}
-                  {book.confidence != null && (
-                    <View style={styles.confidenceBadge}>
-                      <Text style={styles.confidenceText}>
-                        {Math.round(book.confidence * 100)}% match
-                      </Text>
-                    </View>
+                  {pick.reason && (
+                    <Text style={styles.pickReason} numberOfLines={2}>{pick.reason}</Text>
                   )}
                 </View>
                 <TouchableOpacity
                   style={[styles.takeButton, isTaken && styles.takeButtonDone]}
-                  onPress={() => !isTaken && takeBook(book)}
+                  onPress={() => !isTaken && takeBook(pickAsBook)}
                   disabled={isTaken}
                 >
                   <Text style={[styles.takeText, isTaken && styles.takeTextDone]}>
-                    {isTaken ? "Added ✓" : "Take this one"}
+                    {isTaken ? "Added ✓" : "Take"}
                   </Text>
                 </TouchableOpacity>
               </View>
             );
           })}
+
+          {/* 0-reco fallback */}
+          {Array.isArray(scan.recommendation) && scan.recommendation.length === 0 && (
+            <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
+              <Text style={styles.retryText}>Try Another Shelf</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* 3. Summary comment */}
+          <View style={styles.recoCard}>
+            <Text style={styles.recoText}>{scan.recommendationSummary}</Text>
+          </View>
+
+          {/* 4. Note input + refresh */}
+          <View style={styles.commentRow}>
+            <TextInput
+              style={styles.commentInput}
+              value={comment}
+              onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
+              placeholder="Any special wishes? e.g. Something funny with animals..."
+              placeholderTextColor={colors.inkLight}
+              onBlur={saveComment}
+              returnKeyType="done"
+              onSubmitEditing={saveComment}
+            />
+            {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
+          </View>
+          <TouchableOpacity style={styles.refreshRecoButton} onPress={rerunRecommendation}>
+            <Text style={styles.refreshRecoText}>Refresh Recommendations</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* Recommendation panel */}
-      {(scan.recommendation || scan.recommendationSummary) && isDone && (
-        <View style={styles.recoCard}>
-          <View style={styles.recoHeader}>
-            <Text style={styles.recoEmoji}>⭐</Text>
-            <Text style={styles.recoTitle}>Our Picks for You</Text>
+      {/* Note input while still processing (before results) */}
+      {!isDone && !isError && (
+        <View style={styles.section}>
+          <View style={styles.commentRow}>
+            <TextInput
+              style={styles.commentInput}
+              value={comment}
+              onChangeText={(text) => { commentTouched.current = true; setComment(text); }}
+              placeholder="Any special wishes? e.g. Something funny with animals..."
+              placeholderTextColor={colors.inkLight}
+              onBlur={saveComment}
+              returnKeyType="done"
+              onSubmitEditing={saveComment}
+            />
+            {savingComment && <ActivityIndicator size="small" color={colors.beamYellow} />}
           </View>
-          {scan.recommendationSummary && (
-            <Text style={styles.recoText}>{scan.recommendationSummary}</Text>
-          )}
-          {Array.isArray(scan.recommendation) && scan.recommendation.map((pick, i) => (
-            <View key={i} style={styles.recoPick}>
-              <Text style={styles.recoPickTitle}>{pick.title}{pick.author ? ` by ${pick.author}` : ""}</Text>
-              {pick.reason && <Text style={styles.recoPickReason}>{pick.reason}</Text>}
-            </View>
-          ))}
-          {scan.recommendation && !Array.isArray(scan.recommendation) && "text" in scan.recommendation && (
-            <Text style={styles.recoText}>{scan.recommendation.text}</Text>
-          )}
         </View>
       )}
 
@@ -476,12 +471,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
-  sectionLabel: {
-    fontSize: 14,
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMedium,
-    marginBottom: spacing.sm,
-  },
   sectionTitle: {
     fontSize: 20,
     fontFamily: fonts.heading,
@@ -536,10 +525,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   stepLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: fonts.badge,
     color: colors.inkLight,
     textAlign: "center",
+    paddingHorizontal: 2,
   },
   stepLabelActive: {
     color: colors.inkDark,
@@ -600,21 +590,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.card,
   },
-  bookCover: {
-    width: 48,
-    height: 64,
-    borderRadius: radius.sm,
-  },
-  bookCoverPlaceholder: {
-    width: 48,
-    height: 64,
-    borderRadius: radius.sm,
-    backgroundColor: colors.beamYellowLight,
+  rankBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.beamYellow,
     justifyContent: "center",
     alignItems: "center",
   },
-  bookCoverEmoji: {
-    fontSize: 24,
+  rankText: {
+    fontSize: 18,
+    fontFamily: fonts.heading,
+    color: colors.shelfBrown,
   },
   bookInfo: {
     flex: 1,
@@ -631,18 +618,13 @@ const styles = StyleSheet.create({
     color: colors.inkMedium,
     marginTop: 2,
   },
-  confidenceBadge: {
-    backgroundColor: colors.tealLight,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    alignSelf: "flex-start",
-    marginTop: spacing.xs,
-  },
-  confidenceText: {
-    fontSize: 11,
-    fontFamily: fonts.badge,
-    color: colors.pageTeal,
+  pickReason: {
+    fontSize: 13,
+    fontFamily: fonts.body,
+    color: colors.inkMedium,
+    fontStyle: "italic",
+    marginTop: 4,
+    lineHeight: 18,
   },
   takeButton: {
     backgroundColor: colors.beamYellow,
@@ -671,41 +653,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colors.beamYellow,
   },
-  recoHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  recoEmoji: {
-    fontSize: 24,
-  },
-  recoTitle: {
-    fontSize: 18,
-    fontFamily: fonts.heading,
-    color: colors.inkDark,
-  },
   recoText: {
     fontSize: 15,
     fontFamily: fonts.body,
     color: colors.inkDark,
     lineHeight: 22,
     marginBottom: spacing.md,
-  },
-  recoPick: {
-    marginBottom: spacing.sm,
-  },
-  recoPickTitle: {
-    fontSize: 15,
-    fontFamily: fonts.headingMedium,
-    color: colors.inkDark,
-  },
-  recoPickReason: {
-    fontSize: 14,
-    fontFamily: fonts.body,
-    color: colors.inkMedium,
-    lineHeight: 20,
-    marginTop: 2,
   },
   refreshRecoButton: {
     alignSelf: "flex-start",

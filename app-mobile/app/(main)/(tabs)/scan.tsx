@@ -77,6 +77,21 @@ export default function ScanHome() {
     fetchScans().finally(() => setLoading(false));
   }, [fetchScans]);
 
+  // Auto-poll while any scan is still processing
+  const hasProcessing = scans.some(
+    (s) => s.processingStatus && !["done", "error", "failed"].includes(s.processingStatus)
+  );
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (hasProcessing) {
+      pollRef.current = setInterval(() => { fetchScans(); }, 3000);
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [hasProcessing, fetchScans]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchScans();
