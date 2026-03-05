@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Svg, { Path, Polygon } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppAuth } from "../../../lib/auth";
 import * as Haptics from "expo-haptics";
@@ -31,6 +32,109 @@ import {
 } from "../../../lib/api";
 import { useScanStore } from "../../../lib/stores/useScanStore";
 import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
+
+const BEAM_GLOW_COLOR = "rgba(255, 214, 51, 0.7)"; // beamYellow with opacity
+const BEAM_GLOW_COLOR_STRONG = "rgba(255, 214, 51, 0.9)";
+
+function BeamOverlay({
+  imageUrl,
+  obb,
+}: {
+  imageUrl: string;
+  obb: number[][];
+}) {
+  const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const containerWidth = Dimensions.get("window").width - spacing.lg * 2;
+  const containerHeight = 260;
+
+  useEffect(() => {
+    Image.getSize(
+      imageUrl,
+      (w, h) => setImageNaturalSize({ w, h }),
+      () => {}
+    );
+  }, [imageUrl]);
+
+  if (!imageNaturalSize) {
+    return (
+      <View style={{ width: containerWidth, height: containerHeight, backgroundColor: colors.bgWarm, borderRadius: radius.lg }} />
+    );
+  }
+
+  // Fit image into container (contain mode)
+  const imgAspect = imageNaturalSize.w / imageNaturalSize.h;
+  const containerAspect = containerWidth / containerHeight;
+  let displayW: number, displayH: number, offsetX: number, offsetY: number;
+  if (imgAspect > containerAspect) {
+    displayW = containerWidth;
+    displayH = containerWidth / imgAspect;
+    offsetX = 0;
+    offsetY = (containerHeight - displayH) / 2;
+  } else {
+    displayH = containerHeight;
+    displayW = containerHeight * imgAspect;
+    offsetX = (containerWidth - displayW) / 2;
+    offsetY = 0;
+  }
+
+  const scaleX = displayW / imageNaturalSize.w;
+  const scaleY = displayH / imageNaturalSize.h;
+
+  // Map OBB corners to display coordinates
+  const scaledPoints = obb.map(([x, y]) => ({
+    x: offsetX + x * scaleX,
+    y: offsetY + y * scaleY,
+  }));
+  const pointsStr = scaledPoints.map((p) => `${p.x},${p.y}`).join(" ");
+
+  // Expand polygon slightly for the outer glow
+  const cx = scaledPoints.reduce((s, p) => s + p.x, 0) / scaledPoints.length;
+  const cy = scaledPoints.reduce((s, p) => s + p.y, 0) / scaledPoints.length;
+  const glowScale = 1.08;
+  const glowPoints = scaledPoints
+    .map((p) => `${cx + (p.x - cx) * glowScale},${cy + (p.y - cy) * glowScale}`)
+    .join(" ");
+
+  return (
+    <View style={{ width: containerWidth, height: containerHeight, borderRadius: radius.lg, overflow: "hidden", marginBottom: spacing.md }}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={{ width: containerWidth, height: containerHeight }}
+        resizeMode="contain"
+      />
+      <Svg
+        width={containerWidth}
+        height={containerHeight}
+        style={{ position: "absolute", top: 0, left: 0 }}
+      >
+        {/* Dark overlay with cutout for the book (evenodd path) */}
+        <Path
+          d={`M0,0 H${containerWidth} V${containerHeight} H0 Z ` +
+            `M${scaledPoints.map((p) => `${p.x},${p.y}`).join(" L")} Z`}
+          fill="rgba(30,25,20,0.55)"
+          fillRule="evenodd"
+        />
+        {/* Outer glow */}
+        <Polygon
+          points={glowPoints}
+          fill="none"
+          stroke={BEAM_GLOW_COLOR}
+          strokeWidth={8}
+          strokeLinejoin="round"
+          opacity={0.5}
+        />
+        {/* Inner bright border — the "beam" */}
+        <Polygon
+          points={pointsStr}
+          fill="none"
+          stroke={BEAM_GLOW_COLOR_STRONG}
+          strokeWidth={3}
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+}
 
 const PROCESSING_STEPS = [
   { key: "pending", label: "In queue", emoji: "⏳" },
@@ -507,14 +611,19 @@ export default function ScanDetailScreen() {
                   </Text>
                 </View>
 
-                {/* Cropped spine image */}
-                {selectedPick.crop_url && (
+                {/* Beam: shelf photo with highlighted book */}
+                {scan.imageUrl && selectedPick.obb && selectedPick.obb.length >= 3 ? (
+                  <BeamOverlay
+                    imageUrl={getImageUrl(scan.imageUrl)}
+                    obb={selectedPick.obb}
+                  />
+                ) : selectedPick.crop_url ? (
                   <Image
                     source={{ uri: getImageUrl(selectedPick.crop_url) }}
                     style={styles.modalCropImage}
                     resizeMode="contain"
                   />
-                )}
+                ) : null}
 
                 {/* Title & author */}
                 <Text style={styles.modalTitle}>{selectedPick.title}</Text>
