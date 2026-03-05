@@ -94,7 +94,8 @@ services:
       ROBOFLOW_RETRIES: ${ROBOFLOW_RETRIES}
       OCR_BACKEND: ${OCR_BACKEND}
       OCR_LLM_MODEL: ${OCR_LLM_MODEL}
-      OCR_NORMALIZE_MODEL: ${OCR_NORMALIZE_MODEL}
+      NORMALIZATION_MODEL: ${NORMALIZATION_MODEL}
+      NORMALIZATION_BATCH_SIZE: ${NORMALIZATION_BATCH_SIZE}
       RECOMMENDATION_MODEL: ${RECOMMENDATION_MODEL}
       MLX_OCR_URL: ${MLX_OCR_URL}
       HF_ENDPOINT_URL: ${HF_ENDPOINT_URL}
@@ -121,9 +122,11 @@ services:
     environment:
       LANDING_IOS_QR_URL: ${LANDING_IOS_QR_URL}
       LANDING_ANDROID_QR_URL: ${LANDING_ANDROID_QR_URL}
+      CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./landing/src:/app/src
       - ./landing/public:/app/public
+      - ./landing/astro.config.mjs:/app/astro.config.mjs
 
 volumes:
   pgdata:

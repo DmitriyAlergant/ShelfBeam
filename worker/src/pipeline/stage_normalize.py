@@ -8,7 +8,7 @@ from .utils import create_openai_client, llm_call_with_json_retry
 
 log = logging.getLogger("pipeline.normalize")
 
-BATCH_SIZE = 10
+BATCH_SIZE = int(os.environ["NORMALIZATION_BATCH_SIZE"])
 
 NORMALIZE_PROMPT = """\
 You are a book identification assistant. Given raw OCR text extracted from book spines, \
@@ -27,6 +27,7 @@ Rules:
 - Respond with ONLY the JSON array, no other text.
 - YOU CAN DEDUPLICATE. If entry had same book multiple times, return in only one (first index).
 - YOU CAN SPLIT BOOKS. If entry clearnly referred to two different books known to you, you can return them separately, link to the same index.
+- COLLAPSE SERIES. If there are 3 or more entries for a well-known book series (not just different titles from the same author), return only first book in the series.
 
 Input entries:
 {entries_json}
@@ -41,7 +42,7 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
     if openai_client is None:
         openai_client = create_openai_client()
     if model is None:
-        model = os.environ["OCR_NORMALIZE_MODEL"]
+        model = os.environ["NORMALIZATION_MODEL"]
 
     # Filter out entries with no OCR text
     entries_with_text = [r for r in ocr_results if r.get("ocr_text", "").strip()]
