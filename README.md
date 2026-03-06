@@ -8,7 +8,7 @@ An app helping kids choose books to read from a library bookshelf. Snap a pic of
 
 - macOS with Apple Silicon (M1+)
 - Docker & Docker Compose
-- Python 3.11+ (for local OCR server)
+- Python 3.11+ (for vllm-mlx OCR server on Apple Silicon)
 - Node.js 18+
 - Expo Go app on a physical device (optional — web emulator works too)
 
@@ -30,21 +30,20 @@ Edit `.env` and fill in your API keys:
 
 The `.env.example` defaults work for everything else (Postgres, MinIO, admin bypass, etc).
 
-### 2. Start the local MLX OCR server (Apple Silicon)
+### 2. Start the vllm-mlx OCR server (Apple Silicon)
 
-The pipeline uses PaddleOCR-VL for reading book spines. On Apple Silicon Macs, run it locally via MLX:
+The pipeline uses PaddleOCR-VL for reading book spines. On Apple Silicon Macs, run it locally via [vllm-mlx](https://github.com/waybarrios/vllm-mlx) which provides an OpenAI-compatible API with continuous batching:
 
 ```bash
-# Install dependencies (one-time)
-pip install mlx-vlm Pillow
+# Install (one-time)
+pip install vllm-mlx
 
 # Start the server (downloads model on first run, ~3GB)
-MLX_OCR_MODEL=mlx-community/PaddleOCR-VL-1.5-bf16 \
-MLX_OCR_PORT=8090 \
-python3 standalone/mlx-vlm-endpoint/mlx_ocr_server.py
+vllm-mlx serve mlx-community/PaddleOCR-VL-1.5-bf16 \
+  --port 8091 --host 0.0.0.0 --continuous-batching --max-tokens 256
 ```
 
-The server loads the model and listens on `http://localhost:8090`. Keep this terminal open.
+The server loads the model and listens on `http://localhost:8091` with an OpenAI-compatible `/v1/chat/completions` endpoint. Keep this terminal open.
 
 > **Alternative OCR backends:** Set `OCR_BACKEND=hf` in `.env` to use a HuggingFace Inference Endpoint instead (requires `HUGGINGFACE_API_KEY` and `HF_ENDPOINT_URL`). Set `OCR_BACKEND=llm` to use a Vision LLM via the OpenAI-compatible endpoint.
 
@@ -77,7 +76,7 @@ ShelfBeam/
 ├── app-backend/     # Express API + Drizzle ORM (BFF)
 ├── worker/          # Python pipeline (detect -> OCR -> normalize -> recommend)
 ├── landing/         # Astro landing page with QR codes
-├── standalone/      # Standalone dev tools (MLX OCR server, HF endpoint scripts)
+├── standalone/      # Standalone dev tools (test scripts, HF endpoint scripts)
 ├── designs/         # Screen maps, data model, design guidelines
 ├── docs/            # Deployment guides
 ├── docker-compose.yml

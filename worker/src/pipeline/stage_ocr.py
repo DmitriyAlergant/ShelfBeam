@@ -3,7 +3,7 @@
 Supports four backends controlled by OCR_BACKEND env var:
 - "llm": Vision LLM via OpenAI-compatible API (uses OPENAI_API_KEY/OPENAI_BASE_URL + OCR_LLM_MODEL)
 - "hf": PaddleOCR-VL via HuggingFace Inference Endpoint (cloud GPU)
-- "mlx": PaddleOCR-VL via MLX OCR server (Apple Silicon, local)
+- "mlx": PaddleOCR-VL via vllm-mlx OpenAI-compatible server (Apple Silicon, local)
 - "easyocr": EasyOCR on CPU (lower quality)
 """
 
@@ -26,6 +26,7 @@ CONTRAST_FACTOR = 1.5
 CONFIDENCE_THRESHOLD = 0.15
 HF_OCR_MAX_TOKENS = 64
 HF_OCR_CONCURRENCY = 4
+MLX_OCR_CONCURRENCY = 4
 
 
 def _get_ocr_backend() -> str:
@@ -92,18 +93,39 @@ def _ocr_single_crop_llm(crop_b64: str, index: int, client, model: str) -> dict:
     }
 
 
-# --- MLX OCR Server backend ---
+# --- MLX (vllm-mlx) backend ---
 
 def _ocr_single_crop_mlx(crop_b64: str, index: int) -> dict:
-    """OCR via MLX OCR server (PaddleOCR-VL)."""
+    """OCR via vllm-mlx OpenAI-compatible server (PaddleOCR-VL on Apple Silicon)."""
     server_url = os.environ["MLX_OCR_URL"]
+    api_key = os.environ.get("MLX_OCR_API_KEY", "")
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    payload = {
+        "model": os.environ["MLX_OCR_MODEL"],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{crop_b64}"}},
+                    {"type": "text", "text": "OCR:"},
+                ],
+            }
+        ],
+        "max_tokens": 256,
+        "stream": False,
+    }
+
     resp = requests.post(
-        f"{server_url}/ocr",
-        json={"image_b64": crop_b64},
-        timeout=30,
+        f"{server_url}/v1/chat/completions",
+        json=payload,
+        headers=headers,
+        timeout=60,
     )
     resp.raise_for_status()
-    text = resp.json()["text"]
+    text = resp.json()["choices"][0]["message"]["content"]
     merged = " ".join(text.split())
     log.info("  [%d] %s", index, merged[:120] + ("..." if len(merged) > 120 else ""))
 
@@ -242,9 +264,9 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     else:
         raise ValueError(f"Unknown OCR_BACKEND: {backend}")
 
-    if backend in ("hf", "llm"):
+    if backend in ("hf", "llm", "mlx"):
         results = []
-        concurrency = LLM_OCR_CONCURRENCY if backend == "llm" else HF_OCR_CONCURRENCY
+        concurrency = {"llm": LLM_OCR_CONCURRENCY, "hf": HF_OCR_CONCURRENCY, "mlx": MLX_OCR_CONCURRENCY}[backend]
         with ThreadPoolExecutor(max_workers=concurrency) as pool:
             futures = {pool.submit(ocr_fn, c["crop_b64"], c["index"]): c for c in crops}
             for future in as_completed(futures):
