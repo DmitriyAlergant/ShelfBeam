@@ -15,6 +15,11 @@ const iosQr = iosUrl ? await QRCode.toDataURL(iosUrl, qrOptions) : '';
 
 <Base title="ShelfBeam - Snap a Shelf, Find Your Next Read">
 
+  <!-- OUTAGE BANNER -->
+  <div class="outage-banner">
+    ⚠️ App login is temporarily unavailable due to an authentication provider outage. <a href="https://status.clerk.com/" target="_blank" rel="noopener" style="color: #664D03; text-decoration: underline;">Status updates</a>
+  </div>
+
   <!-- HERO -->
   <section class="hero">
     <div class="hero-image-wrap">
@@ -167,6 +172,22 @@ const iosQr = iosUrl ? await QRCode.toDataURL(iosUrl, qrOptions) : '';
 </Base>
 
 <style>
+  /* ========== OUTAGE BANNER ========== */
+  .outage-banner {
+    background: #FFF3CD;
+    color: #664D03;
+    text-align: center;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    border-bottom: 1px solid #FFECB5;
+  }
+
   /* ========== HERO ========== */
   .hero {
     position: relative;
