@@ -241,7 +241,10 @@ def _ocr_single_crop_easyocr(crop_b64: str, index: int) -> dict:
 
 # --- Public API ---
 
-def ocr_crops(crops: list[dict]) -> list[dict]:
+PROGRESS_REPORT_INTERVAL = 4
+
+
+def ocr_crops(crops: list[dict], progress_callback=None) -> list[dict]:
     """Run OCR on all cropped spine images.
 
     Each crop dict must have 'index' and 'crop_b64' keys.
@@ -264,6 +267,19 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
     else:
         raise ValueError(f"Unknown OCR_BACKEND: {backend}")
 
+    total = len(crops)
+    completed = 0
+    last_reported = 0
+
+    def _report_progress():
+        nonlocal last_reported
+        if progress_callback and completed >= last_reported + PROGRESS_REPORT_INTERVAL:
+            progress_callback(completed, total)
+            last_reported = completed
+
+    if progress_callback:
+        progress_callback(0, total)
+
     if backend in ("hf", "llm", "mlx"):
         results = []
         concurrency = {"llm": LLM_OCR_CONCURRENCY, "hf": HF_OCR_CONCURRENCY, "mlx": MLX_OCR_CONCURRENCY}[backend]
@@ -271,10 +287,14 @@ def ocr_crops(crops: list[dict]) -> list[dict]:
             futures = {pool.submit(ocr_fn, c["crop_b64"], c["index"]): c for c in crops}
             for future in as_completed(futures):
                 results.append(future.result())
+                completed += 1
+                _report_progress()
     else:
         results = []
         for crop in crops:
             results.append(ocr_fn(crop["crop_b64"], crop["index"]))
+            completed += 1
+            _report_progress()
 
     results.sort(key=lambda r: r["index"])
     log.info("OCR complete: %d/%d crops processed", len(results), len(crops))

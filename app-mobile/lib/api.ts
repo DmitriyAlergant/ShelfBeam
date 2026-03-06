@@ -154,6 +154,7 @@ export type ScanData = {
   readerProfileId: string;
   imageUrl: string | null;
   processingStatus: string | null;
+  processingProgress: { done: number; total: number } | null;
   readerComment: string | null;
   detectedBooks: DetectedBook[] | null;
   recommendation: ScanRecommendation | null;

@@ -21,6 +21,7 @@ def run_full_pipeline(
     reader_comment: str | None = None,
     is_base64: bool = False,
     status_callback=None,
+    progress_callback=None,
     scan_id: str | None = None,
     cancellation_check: Callable[[], bool] | None = None,
 ) -> dict:
@@ -53,13 +54,13 @@ def run_full_pipeline(
 
     # Stage 2: OCR
     _notify("ocr")
-    ocr_results = ocr_crops(detections)
+    ocr_results = ocr_crops(detections, progress_callback=progress_callback)
 
     _check_cancel()
 
     # Stage 3: Normalize
     _notify("normalize")
-    normalized = normalize_books(ocr_results)
+    normalized = normalize_books(ocr_results, progress_callback=progress_callback)
 
     for n in normalized:
         log.info("  [%d] %s — %s", n["index"], n.get("title"), n.get("author"))

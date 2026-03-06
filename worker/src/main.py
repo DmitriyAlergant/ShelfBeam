@@ -298,7 +298,11 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         """Called by the pipeline orchestrator when a stage starts."""
         db_status = STAGE_TO_STATUS.get(stage_name)
         if db_status:
-            patch_scan({"processing_status": db_status})
+            patch_scan({"processing_status": db_status, "processing_progress": None})
+
+    def progress_callback(done: int, total: int):
+        """Called by pipeline stages to report sub-stage progress as done/total."""
+        patch_scan({"processing_progress": {"done": done, "total": total}})
 
     # Load image as base64, converting HEIC/non-JPEG to JPEG for downstream APIs
     raw_b64 = load_image_as_base64(image_url)
@@ -324,6 +328,7 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         reader_comment=reader_comment,
         is_base64=True,
         status_callback=status_callback,
+        progress_callback=progress_callback,
         scan_id=scan_id,
         cancellation_check=lambda: check_scan_cancelled(scan_id),
     )

@@ -47,6 +47,7 @@ export const scan = pgTable("scan", {
   processingTaskId: uuid("processing_task_id"),
   processingTaskStarted: timestamp("processing_task_started", { withTimezone: true }),
   processingStatus: text("processing_status"),
+  processingProgress: jsonb("processing_progress"),
   readerComment: text("reader_comment"),
   detectedBooks: jsonb("detected_books"),
   recommendation: jsonb("recommendation"),

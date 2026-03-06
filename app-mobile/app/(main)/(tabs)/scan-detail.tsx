@@ -137,10 +137,10 @@ function BeamOverlay({
 }
 
 const WORKFLOW_STEPS = [
-  { key: "detecting", label: "Noticing books", emoji: "🔍" },
-  { key: "reading", label: "Reading spines", emoji: "📖" },
-  { key: "looking_up", label: "Learning", emoji: "📚" },
-  { key: "recommending", label: "Picking favorites", emoji: "⭐" },
+  { key: "detecting", label: "Noticing books", emoji: "🔍", progressFormat: null },
+  { key: "reading", label: "Reading spines", emoji: "📖", progressFormat: "fraction" as const },
+  { key: "looking_up", label: "Learning", emoji: "📚", progressFormat: "percent" as const },
+  { key: "recommending", label: "Picking favorites", emoji: "⭐", progressFormat: null },
 ];
 
 const TERMINAL_STATUSES = ["done", "error", "failed", "cancelled"];
@@ -172,6 +172,7 @@ export default function ScanDetailScreen() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const commentTouched = useRef(false);
 
   const commentInitialized = useRef(false);
@@ -337,6 +338,7 @@ export default function ScanDetailScreen() {
       processing_status: "pending",
       processing_task_id: null,
     });
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [id, comment, getToken, storePatchLocal, storeUpdateScan]);
 
   if (loading || !scan) {
@@ -358,6 +360,7 @@ export default function ScanDetailScreen() {
   return (
     <View style={styles.container}>
     <ScrollView
+      ref={scrollRef}
       style={styles.scrollView}
       contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
       keyboardShouldPersistTaps="handled"
@@ -407,6 +410,16 @@ export default function ScanDetailScreen() {
                 {WORKFLOW_STEPS.map((step, i) => {
                   const isActive = i === workflowStep;
                   const isComplete = i < workflowStep;
+                  const progress = isActive && step.progressFormat ? scan?.processingProgress : null;
+                  let progressLabel: string | null = null;
+                  if (progress != null && step.progressFormat === "fraction") {
+                    progressLabel = `${progress.done}/${progress.total}`;
+                  } else if (isActive && step.progressFormat === "percent") {
+                    const pct = progress != null && progress.total > 0
+                      ? Math.round(progress.done / progress.total * 100)
+                      : 0;
+                    progressLabel = `${pct}%`;
+                  }
                   return (
                     <View key={step.key} style={styles.stepItem}>
                       <View
@@ -429,6 +442,9 @@ export default function ScanDetailScreen() {
                       >
                         {step.label}
                       </Text>
+                      {progressLabel != null && (
+                        <Text style={styles.stepProgress}>{progressLabel}</Text>
+                      )}
                       {i < WORKFLOW_STEPS.length - 1 && (
                         <View
                           style={[
@@ -808,6 +824,12 @@ const styles = StyleSheet.create({
   },
   stepLabelComplete: {
     color: colors.pageTeal,
+  },
+  stepProgress: {
+    fontSize: 12,
+    fontFamily: fonts.badge,
+    color: colors.inkDark,
+    marginTop: 2,
   },
   stepLine: {
     position: "absolute",

@@ -34,7 +34,7 @@ Input entries:
 """
 
 
-def normalize_books(ocr_results: list[dict], openai_client=None, model: str | None = None) -> list[dict]:
+def normalize_books(ocr_results: list[dict], openai_client=None, model: str | None = None, progress_callback=None) -> list[dict]:
     """Normalize raw OCR results into structured {title, author} via LLM.
 
     Processes in batches of up to BATCH_SIZE books per LLM call.
@@ -62,7 +62,8 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
         })
 
     # Process in batches
-    for batch_start in range(0, len(entries_with_text), BATCH_SIZE):
+    total_entries = len(entries_with_text)
+    for batch_start in range(0, total_entries, BATCH_SIZE):
         batch = entries_with_text[batch_start:batch_start + BATCH_SIZE]
         batch_input = [{"index": e["index"], "ocr_text": e["ocr_text"]} for e in batch]
 
@@ -89,6 +90,10 @@ def normalize_books(ocr_results: list[dict], openai_client=None, model: str | No
                 "title": item.get("title"),
                 "author": item.get("author"),
             })
+
+        if progress_callback and total_entries > 0:
+            done = min(batch_start + len(batch), total_entries)
+            progress_callback(done, total_entries)
 
     # Post-process: assign unique indices for split entries (multiple books from one OCR slot).
     # Every entry gets a `detection_index` pointing back to the original detection for crop/OBB.
