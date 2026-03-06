@@ -29,6 +29,13 @@
       "when": 1772750000000,
       "tag": "0003_replace_birth_year_with_age_grade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772764954360,
+      "tag": "0004_pale_gorilla_man",
+      "breakpoints": true
     }
   ]
 }
