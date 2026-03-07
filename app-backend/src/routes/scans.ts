@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { db } from "../db";
 import { scan, readerProfile, bookHistoryEntry } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import sharp from "sharp";
 import { uploadFile } from "../lib/s3";
 import { resolveAppUser } from "../lib/resolve-user";
 
@@ -23,12 +24,42 @@ router.post("/api/scans/upload", requireAuth(), upload.single("image"), async (r
     return;
   }
 
+  const id = crypto.randomUUID();
   const ext = path.extname(req.file.originalname) || ".jpg";
-  const key = `${crypto.randomUUID()}${ext}`;
+  const key = `${id}${ext}`;
   await uploadFile(key, req.file.buffer, req.file.mimetype);
 
+  let sharpInput;
+  try {
+    sharpInput = sharp(req.file.buffer).withMetadata({ orientation: undefined });
+    // Force decode to validate the image format
+    await sharpInput.metadata();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(422).json({ error: `Unsupported image format: ${msg}` });
+    return;
+  }
+
+  // Preview (800px wide — for scan detail, BeamOverlay)
+  const previewBuffer = await sharpInput.clone()
+    .resize(800, undefined, { withoutEnlargement: true })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+  const previewKey = `preview/${id}.jpg`;
+  await uploadFile(previewKey, previewBuffer, "image/jpeg");
+
+  // Thumbnail (200px wide — for scan list)
+  const thumbBuffer = await sharpInput.clone()
+    .resize(200, undefined, { withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+  const thumbKey = `thumb/${id}.jpg`;
+  await uploadFile(thumbKey, thumbBuffer, "image/jpeg");
+
   const imageUrl = `/uploads/${key}`;
-  res.json({ image_url: imageUrl });
+  const thumbnailUrl = `/uploads/${thumbKey}`;
+  const previewUrl = `/uploads/${previewKey}`;
+  res.json({ image_url: imageUrl, thumbnail_url: thumbnailUrl, preview_url: previewUrl });
 });
 
 // Create scan
@@ -36,7 +67,7 @@ router.post("/api/scans", requireAuth(), async (req: Request, res: Response) => 
   const user = await resolveAppUser(req, res);
   if (!user) return;
 
-  const { reader_profile_id, image_url, reader_comment } = req.body;
+  const { reader_profile_id, image_url, thumbnail_url, preview_url, reader_comment } = req.body;
   if (!reader_profile_id || !image_url) {
     res.status(400).json({ error: "reader_profile_id and image_url are required" });
     return;
@@ -55,6 +86,8 @@ router.post("/api/scans", requireAuth(), async (req: Request, res: Response) => 
     .values({
       readerProfileId: reader_profile_id,
       imageUrl: image_url,
+      thumbnailUrl: thumbnail_url || null,
+      previewUrl: preview_url || null,
       readerComment: reader_comment || null,
       processingStatus: "pending",
     })

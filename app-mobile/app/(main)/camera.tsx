@@ -54,10 +54,12 @@ export default function CameraScreen() {
     const token = await getToken();
     if (!token) { setUploading(false); return; }
 
-    const { image_url } = await uploadScanImage(token, capturedUri);
+    const { image_url, thumbnail_url, preview_url } = await uploadScanImage(token, capturedUri);
     const scan = await createScan(token, {
       reader_profile_id: activeProfile.id,
       image_url,
+      thumbnail_url,
+      preview_url,
     });
     useScanStore.getState().addScan(scan);
     setUploading(false);

@@ -30,6 +30,7 @@ import {
   type DetectedBook,
   type ScanRecommendationPick,
 } from "../../../lib/api";
+import LoadingImage from "../../../components/LoadingImage";
 import { useScanStore } from "../../../lib/stores/useScanStore";
 import { useHistoryStore } from "../../../lib/stores/useHistoryStore";
 
@@ -44,6 +45,7 @@ function BeamOverlay({
   obb: number[][];
 }) {
   const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const containerWidth = Dimensions.get("window").width - spacing.lg * 2;
   const containerHeight = 260;
 
@@ -101,8 +103,9 @@ function BeamOverlay({
         source={{ uri: imageUrl }}
         style={{ width: containerWidth, height: containerHeight }}
         resizeMode="contain"
+        onLoad={() => setImageLoaded(true)}
       />
-      <Svg
+      {imageLoaded && <Svg
         width={containerWidth}
         height={containerHeight}
         style={{ position: "absolute", top: 0, left: 0 }}
@@ -131,7 +134,7 @@ function BeamOverlay({
           strokeWidth={3}
           strokeLinejoin="round"
         />
-      </Svg>
+      </Svg>}
     </View>
   );
 }
@@ -378,9 +381,10 @@ export default function ScanDetailScreen() {
           activeOpacity={0.9}
           onPress={() => setImageExpanded(!imageExpanded)}
         >
-          <Image
-            source={{ uri: getImageUrl(scan.imageUrl) }}
+          <LoadingImage
+            source={{ uri: getImageUrl(scan.previewUrl ?? scan.imageUrl) }}
             style={imageExpanded ? styles.shelfImageExpanded : styles.shelfImageCollapsed}
+            placeholderStyle={imageExpanded ? styles.shelfImageExpanded : styles.shelfImageCollapsed}
             resizeMode="cover"
           />
           <View style={styles.imageToggle}>
@@ -512,9 +516,10 @@ export default function ScanDetailScreen() {
                 <View style={styles.bookCard}>
                   {pick.crop_url ? (
                     <View style={styles.cropContainer}>
-                      <Image
+                      <LoadingImage
                         source={{ uri: getImageUrl(pick.crop_url) }}
                         style={styles.bookCropThumb}
+                        placeholderStyle={styles.bookCropThumb}
                         resizeMode="cover"
                       />
                       <View style={styles.rankBadgeMini}>
@@ -644,9 +649,10 @@ export default function ScanDetailScreen() {
                     obb={selectedPick.obb}
                   />
                 ) : selectedPick.crop_url ? (
-                  <Image
+                  <LoadingImage
                     source={{ uri: getImageUrl(selectedPick.crop_url) }}
                     style={styles.modalCropImage}
+                    placeholderStyle={styles.modalCropImage}
                     resizeMode="contain"
                   />
                 ) : null}
