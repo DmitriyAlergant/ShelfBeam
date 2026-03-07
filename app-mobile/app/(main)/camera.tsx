@@ -131,6 +131,7 @@ export default function CameraScreen() {
         ref={cameraRef as React.RefObject<CameraView>}
         style={styles.camera}
         facing="back"
+        pictureSize="Photo"
       >
         <View style={[styles.cameraOverlay, { paddingTop: insets.top + spacing.md }]}>
           <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
