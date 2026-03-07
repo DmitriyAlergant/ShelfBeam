@@ -349,11 +349,17 @@ def _process_scan_sync(scan_row: dict, task_id: str):
         idx = rec["book_index"]
         crop_b64 = crop_by_index.get(idx)
         if crop_b64:
+            crop_img = Image.open(io.BytesIO(base64.b64decode(crop_b64)))
+            if crop_img.width > 300:
+                ratio = 300 / crop_img.width
+                crop_img = crop_img.resize((300, int(crop_img.height * ratio)), Image.LANCZOS)
+            crop_buf = io.BytesIO()
+            crop_img.convert("RGB").save(crop_buf, format="JPEG", quality=80)
             key = f"crops/{scan_id}/{idx}.jpg"
             _s3_client.put_object(
                 Bucket=S3_BUCKET,
                 Key=key,
-                Body=base64.b64decode(crop_b64),
+                Body=crop_buf.getvalue(),
                 ContentType="image/jpeg",
             )
             rec["crop_url"] = f"/uploads/{key}"

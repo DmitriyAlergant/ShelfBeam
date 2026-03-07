@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import * as ImageManipulator from "expo-image-manipulator";
 
 const API_BASE_URL = (() => {
   const url = process.env.EXPO_PUBLIC_API_URL;
@@ -153,6 +154,8 @@ export type ScanData = {
   id: string;
   readerProfileId: string;
   imageUrl: string | null;
+  thumbnailUrl: string | null;
+  previewUrl: string | null;
   processingStatus: string | null;
   processingProgress: { done: number; total: number } | null;
   readerComment: string | null;
@@ -184,30 +187,36 @@ export type ScanRecommendationPick = {
 
 export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };
 
-export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string }> {
+export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string; thumbnail_url?: string; preview_url?: string }> {
+  // Convert to JPEG to avoid HEIC/HEIF format issues on the server
+  const manipulated = await ImageManipulator.manipulateAsync(
+    imageUri,
+    [],
+    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+  );
+  const jpegUri = manipulated.uri;
+
   const formData = new FormData();
-  const filename = imageUri.split("/").pop() || "photo.jpg";
-  const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
-  const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+  const filename = "photo.jpg";
 
   if (Platform.OS === "web") {
-    const response = await fetch(imageUri);
+    const response = await fetch(jpegUri);
     const blob = await response.blob();
     formData.append("image", blob, filename);
   } else {
     formData.append("image", {
-      uri: imageUri,
+      uri: jpegUri,
       name: filename,
-      type: mimeType,
+      type: "image/jpeg",
     } as unknown as Blob);
   }
 
-  return apiUpload<{ image_url: string }>("/api/scans/upload", formData, token);
+  return apiUpload<{ image_url: string; thumbnail_url?: string; preview_url?: string }>("/api/scans/upload", formData, token);
 }
 
 export function createScan(
   token: string,
-  data: { reader_profile_id: string; image_url: string; reader_comment?: string }
+  data: { reader_profile_id: string; image_url: string; thumbnail_url?: string; preview_url?: string; reader_comment?: string }
 ) {
   return apiFetch<ScanData>("/api/scans", {
     method: "POST",

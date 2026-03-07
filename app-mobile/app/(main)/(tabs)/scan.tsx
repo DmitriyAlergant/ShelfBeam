@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import { useAppAuth } from "../../../lib/auth";
 import { colors, fonts, radius, spacing, shadows } from "../../../lib/theme";
 import { useAppContext } from "../../../lib/AppContext";
 import { getImageUrl, type ScanData } from "../../../lib/api";
+import LoadingImage from "../../../components/LoadingImage";
 import { useScanStore } from "../../../lib/stores/useScanStore";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -135,9 +135,10 @@ export default function ScanHome() {
             onPress={() => router.push(`/(main)/(tabs)/scan-detail?id=${item.id}`)}
           >
             {item.imageUrl && (
-              <Image
-                source={{ uri: getImageUrl(item.imageUrl) }}
+              <LoadingImage
+                source={{ uri: getImageUrl(item.thumbnailUrl ?? item.previewUrl ?? item.imageUrl) }}
                 style={styles.scanThumb}
+                placeholderStyle={styles.scanThumb}
                 resizeMode="cover"
               />
             )}

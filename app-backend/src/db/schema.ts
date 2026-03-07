@@ -44,6 +44,8 @@ export const scan = pgTable("scan", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   readerProfileId: uuid("reader_profile_id"),
   imageUrl: text("image_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  previewUrl: text("preview_url"),
   processingTaskId: uuid("processing_task_id"),
   processingTaskStarted: timestamp("processing_task_started", { withTimezone: true }),
   processingStatus: text("processing_status"),

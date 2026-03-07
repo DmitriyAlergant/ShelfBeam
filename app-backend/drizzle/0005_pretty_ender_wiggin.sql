@@ -1,0 +1,1 @@
+ALTER TABLE "scan" ADD COLUMN "thumbnail_url" text;
