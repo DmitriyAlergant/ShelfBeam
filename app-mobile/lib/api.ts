@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import * as ImageManipulator from "expo-image-manipulator";
+
 
 const API_BASE_URL = (() => {
   const url = process.env.EXPO_PUBLIC_API_URL;
@@ -188,28 +188,26 @@ export type ScanRecommendationPick = {
 export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };
 
 export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string; thumbnail_url?: string; preview_url?: string }> {
-  // Convert to JPEG to avoid HEIC/HEIF format issues on the server.
-  // Use high quality (0.95) to preserve full resolution — lower values
-  // cause iOS to silently downscale the image, hurting OCR accuracy.
-  const manipulated = await ImageManipulator.manipulateAsync(
-    imageUri,
-    [],
-    { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
-  );
-  const jpegUri = manipulated.uri;
-
+  // Upload the original image as-is (HEIC, JPEG, etc.) at full resolution.
+  // Server-side (sharp + pillow-heif) handles format conversion.
+  // Client-side ImageManipulator was silently downscaling on iOS.
   const formData = new FormData();
-  const filename = "photo.jpg";
+
+  // Infer extension and MIME type from the URI
+  const uriLower = imageUri.toLowerCase();
+  const isHeic = uriLower.endsWith(".heic") || uriLower.endsWith(".heif");
+  const filename = isHeic ? "photo.heic" : "photo.jpg";
+  const mimeType = isHeic ? "image/heic" : "image/jpeg";
 
   if (Platform.OS === "web") {
-    const response = await fetch(jpegUri);
+    const response = await fetch(imageUri);
     const blob = await response.blob();
     formData.append("image", blob, filename);
   } else {
     formData.append("image", {
-      uri: jpegUri,
+      uri: imageUri,
       name: filename,
-      type: "image/jpeg",
+      type: mimeType,
     } as unknown as Blob);
   }
 
