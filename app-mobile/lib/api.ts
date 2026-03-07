@@ -188,11 +188,13 @@ export type ScanRecommendationPick = {
 export type ScanRecommendation = ScanRecommendationPick[] | { text: string; top_picks?: string[] };
 
 export async function uploadScanImage(token: string, imageUri: string): Promise<{ image_url: string; thumbnail_url?: string; preview_url?: string }> {
-  // Convert to JPEG to avoid HEIC/HEIF format issues on the server
+  // Convert to JPEG to avoid HEIC/HEIF format issues on the server.
+  // Use high quality (0.95) to preserve full resolution — lower values
+  // cause iOS to silently downscale the image, hurting OCR accuracy.
   const manipulated = await ImageManipulator.manipulateAsync(
     imageUri,
     [],
-    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+    { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
   );
   const jpegUri = manipulated.uri;
 
