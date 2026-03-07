@@ -34,14 +34,14 @@ export default function CameraScreen() {
 
   const takePhoto = useCallback(async () => {
     if (!cameraRef.current) return;
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+    const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
     setCapturedUri(photo.uri);
   }, []);
 
   const pickFromGallery = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
       setCapturedUri(result.assets[0].uri);
