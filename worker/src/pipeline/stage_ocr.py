@@ -126,6 +126,9 @@ def _ocr_single_crop_mlx(crop_b64: str, index: int) -> dict:
     )
     resp.raise_for_status()
     text = resp.json()["choices"][0]["message"]["content"]
+    if not text:
+        log.warning("  [%d] OCR returned empty/null content, skipping", index)
+        return {"index": index, "ocr_text": "", "ocr_regions": []}
     merged = " ".join(text.split())
     log.info("  [%d] %s", index, merged[:120] + ("..." if len(merged) > 120 else ""))
 
@@ -150,6 +153,9 @@ def _ocr_single_crop_hf(crop_b64: str, index: int) -> dict:
     )
     resp.raise_for_status()
     text = resp.json()[0]["text"]
+    if not text:
+        log.warning("  [%d] OCR returned empty/null content, skipping", index)
+        return {"index": index, "ocr_text": "", "ocr_regions": []}
     merged = " ".join(text.split())
     log.info("  [%d] %s", index, merged[:120] + ("..." if len(merged) > 120 else ""))
 
